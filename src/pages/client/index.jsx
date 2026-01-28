@@ -32,9 +32,22 @@ export default function ClientDashboard() {
   // 🔹 Agent Handover State
   const [handoverEnabled, setHandoverEnabled] = useState(false);
 
-  // ✅ Page Connection State (reads PAGE_NAME from Mongo)
+  // ✅ Page Connection State
   const [pageName, setPageName] = useState("");
   const [pageId, setPageId] = useState("");
+
+  // ✅ Webhook Review Proof State
+  const [webhookStatus, setWebhookStatus] = useState({
+    webhookSubscribed: false,
+    webhookFields: [],
+    webhookSubscribedAt: null,
+    lastWebhookAt: null,
+    lastWebhookType: "",
+  });
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const [subscribeError, setSubscribeError] = useState("");
+  const [showWebhookModal, setShowWebhookModal] = useState(false);
+  const [lastWebhookPayload, setLastWebhookPayload] = useState(null);
 
   // 🔹 Get user info from /api/me
   useEffect(() => {
@@ -44,14 +57,12 @@ export default function ClientDashboard() {
           credentials: "include",
         });
         const data = await res.json();
-        console.log("/api/me response:", data);
 
         if (!res.ok || data.role !== "client") {
-          navigate("/"); // redirect if not client
+          navigate("/");
           return;
         }
 
-        console.log("ClientID from /api/me:", data.clientId);
         setClientId(data.clientId);
       } catch (err) {
         console.error("Could not verify user:", err);
@@ -68,21 +79,89 @@ export default function ClientDashboard() {
     fetchStats();
     fetchConversationStats();
     fetchHandoverStatus();
-    fetchClientPageConnection(); // ✅ NEW
+    fetchClientPageConnection();
+    fetchWebhookStatus(); // ✅ NEW
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
 
-  // ✅ NEW: Fetch client object to show PAGE_NAME if connected
+  // ✅ Fetch client object to show PAGE_NAME if connected
   const fetchClientPageConnection = async () => {
     try {
       const res = await fetch(`https://serverowned.onrender.com/api/clients/${clientId}`, {
         credentials: "include",
       });
       const data = await res.json();
-      setPageName(data?.PAGE_NAME || ""); // ✅ Mongo field
-      setPageId(data?.pageId || ""); // 
+      setPageName(data?.PAGE_NAME || "");
+      setPageId(data?.pageId || "");
     } catch (err) {
       console.error("Error fetching client page connection:", err);
+    }
+  };
+
+  // ✅ NEW: Fetch webhook status (review proof)
+  const fetchWebhookStatus = async () => {
+    try {
+      if (!clientId) return;
+      const res = await fetch(`https://serverowned.onrender.com/api/webhooks/status/${clientId}`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setWebhookStatus({
+          webhookSubscribed: Boolean(data?.webhookSubscribed),
+          webhookFields: data?.webhookFields || [],
+          webhookSubscribedAt: data?.webhookSubscribedAt || null,
+          lastWebhookAt: data?.lastWebhookAt || null,
+          lastWebhookType: data?.lastWebhookType || "",
+        });
+      }
+    } catch (err) {
+      console.error("Error fetching webhook status:", err);
+    }
+  };
+
+  // ✅ NEW: Enable webhooks (subscribe) (review proof)
+  const enableWebhooks = async () => {
+    try {
+      if (!clientId) return;
+      setIsSubscribing(true);
+      setSubscribeError("");
+
+      const res = await fetch(`https://serverowned.onrender.com/api/webhooks/subscribe/${clientId}`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.success) {
+        setSubscribeError(data?.error || "Subscription failed (no success=true returned)");
+      }
+
+      // Refresh status after attempt
+      await fetchWebhookStatus();
+    } catch (err) {
+      console.error("Enable webhooks error:", err);
+      setSubscribeError("Subscription failed (network/server error)");
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
+
+  // ✅ NEW: View last webhook payload (optional but strong for review)
+  const openLastWebhookPayload = async () => {
+    try {
+      if (!clientId) return;
+      const res = await fetch(`https://serverowned.onrender.com/api/webhooks/last/${clientId}`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      setLastWebhookPayload(data || null);
+      setShowWebhookModal(true);
+    } catch (err) {
+      console.error("Error fetching last webhook payload:", err);
+      setLastWebhookPayload(null);
+      setShowWebhookModal(true);
     }
   };
 
@@ -92,45 +171,23 @@ export default function ClientDashboard() {
 
     const fetchChartData = async () => {
       try {
-        const res = await fetch(
-          `https://serverowned.onrender.com/api/stats/${clientId}?mode=${mode}`,
-          { credentials: "include" }
-        );
+        const res = await fetch(`https://serverowned.onrender.com/api/stats/${clientId}?mode=${mode}`, {
+          credentials: "include",
+        });
         const data = await res.json();
-        console.log(`📊 /api/stats/${clientId}?mode=${mode}`, data);
 
         const results = Array.isArray(data) ? data : data.chartResults || [];
-        console.log("📊 Normalized results array:", results);
-
         let normalized = [];
 
         if (mode === "daily") {
-          normalized = results.map((d) => ({
-            label: `${d._id}:00`,
-            messages: d.count,
-          }));
+          normalized = results.map((d) => ({ label: `${d._id}:00`, messages: d.count }));
         } else if (mode === "weekly") {
-          const daysMap = {
-            1: "Sun",
-            2: "Mon",
-            3: "Tue",
-            4: "Wed",
-            5: "Thu",
-            6: "Fri",
-            7: "Sat",
-          };
-          normalized = results.map((d) => ({
-            label: daysMap[d._id] || d._id,
-            messages: d.count,
-          }));
+          const daysMap = { 1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat" };
+          normalized = results.map((d) => ({ label: daysMap[d._id] || d._id, messages: d.count }));
         } else if (mode === "monthly") {
-          normalized = results.map((d) => ({
-            label: d._id.toString(),
-            messages: d.count,
-          }));
+          normalized = results.map((d) => ({ label: d._id.toString(), messages: d.count }));
         }
 
-        console.log("📊 Normalized chartData:", normalized);
         setChartData(normalized);
       } catch (err) {
         console.error("Error fetching chart data:", err);
@@ -153,46 +210,13 @@ export default function ClientDashboard() {
     }
   };
 
-  // 🔹 Toggle handover
-  const handleHandoverToggle = async () => {
-    try {
-      if (!clientId) return;
-
-      // Fetch current client object first
-      const res = await fetch(`https://serverowned.onrender.com/api/clients/${clientId}`, {
-        credentials: "include",
-      });
-      const client = await res.json();
-
-      // Toggle active
-      const newActive = !client.active;
-
-      // Send full client object with updated active
-      await fetch(`https://serverowned.onrender.com/api/clients/${client.clientId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ ...client, active: newActive }),
-      });
-
-      // Refresh local handover status and stats
-      await fetchHandoverStatus();
-      await fetchStats();
-    } catch (err) {
-      console.error("Error updating handover status:", err);
-    }
-  };
-
   async function fetchStats() {
     try {
       const res = await fetch(`https://serverowned.onrender.com/api/stats/${clientId}`, {
         credentials: "include",
       });
       const data = await res.json();
-      console.log("Stats data:", data);
       setStats(data);
-
-      // Set human/tour requests
       setHumanRequests(data.totalHumanRequests || 0);
       setTourRequests(data.totalTourRequests || 0);
     } catch (err) {
@@ -207,11 +231,8 @@ export default function ClientDashboard() {
         credentials: "include",
       });
 
-      if (res.ok) {
-        navigate("/");
-      } else {
-        console.error("Logout failed");
-      }
+      if (res.ok) navigate("/");
+      else console.error("Logout failed");
     } catch (err) {
       console.error("Error logging out:", err);
     }
@@ -250,12 +271,10 @@ export default function ClientDashboard() {
         credentials: "include",
       });
       const data = await res.json();
-      console.log("Conversations raw data:", data);
 
       if (Array.isArray(data)) {
         const total = data.length;
-        const avg =
-          total > 0 ? Math.round(data.reduce((sum, c) => sum + (c.history?.length || 0), 0) / total) : 0;
+        const avg = total > 0 ? Math.round(data.reduce((sum, c) => sum + (c.history?.length || 0), 0) / total) : 0;
 
         const today = data.filter((c) => {
           const updated = new Date(c.updatedAt);
@@ -279,13 +298,6 @@ export default function ClientDashboard() {
           activeToday: today,
           bySource,
         });
-
-        console.log("Computed conversationStats:", {
-          total,
-          avg,
-          today,
-          bySource,
-        });
       }
     } catch (err) {
       console.error("Error fetching conversations:", err);
@@ -307,14 +319,18 @@ export default function ClientDashboard() {
   };
 
   useEffect(() => {
-    if (showConvoModal) {
-      viewConvos();
-    }
+    if (showConvoModal) viewConvos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSource, showConvoModal]);
 
   const { used, quota } = stats;
   const remaining = quota - used;
+
+  const formatDateTime = (iso) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? String(iso) : d.toLocaleString();
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10">
@@ -348,28 +364,94 @@ export default function ClientDashboard() {
               Connect your Facebook Page to enable Messenger chatbot features and manage messages directly.
             </p>
 
-            {/* ✅ Shows PAGE_NAME if exists */}
             {pageName ? (
               <p className="text-sm text-slate-600">
                 Connected Page: <span className="font-medium">{pageName}</span>
               </p>
             ) : null}
-             {pageId ? (
+
+            {pageId ? (
               <p className="text-sm text-slate-600">
                 Connected PageId: <span className="font-medium">{pageId}</span>
               </p>
             ) : null}
-<Button
-  onClick={() => {
-    window.location.href =
-      `https://serverowned.onrender.com/auth/facebook?clientId=${encodeURIComponent(clientId)}`;
-  }}
-  className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg"
->
-  Connect Facebook Page
-</Button>
 
+            <Button
+              onClick={() => {
+                window.location.href = `https://serverowned.onrender.com/auth/facebook?clientId=${encodeURIComponent(
+                  clientId
+                )}`;
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg"
+            >
+              Connect Facebook Page
+            </Button>
 
+            {/* ✅ NEW: Webhook Subscription (review proof) */}
+            <div className="mt-4 border rounded-xl p-4 bg-slate-50">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="font-semibold text-slate-800">Webhook Subscription</div>
+                  <p className="text-xs text-slate-600 mt-1">
+                    This proves your app uses <b>pages_manage_metadata</b> to subscribe the Page to events and receive webhooks.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={fetchWebhookStatus}>
+                    Refresh Status
+                  </Button>
+                  <Button onClick={enableWebhooks} disabled={!pageId || isSubscribing}>
+                    {isSubscribing ? "Enabling..." : "Enable Webhooks"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-sm">
+                <div className="bg-white rounded-lg p-3 border">
+                  <div className="text-slate-500 text-xs">Status</div>
+                  <div className="font-medium">
+                    {webhookStatus.webhookSubscribed ? "✅ Active" : "❌ Not Active"}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    Subscribed At: {formatDateTime(webhookStatus.webhookSubscribedAt)}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-3 border">
+                  <div className="text-slate-500 text-xs">Last webhook received</div>
+                  <div className="font-medium">{formatDateTime(webhookStatus.lastWebhookAt)}</div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    Type: {webhookStatus.lastWebhookType || "—"}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-3 border sm:col-span-2">
+                  <div className="text-slate-500 text-xs">Subscribed fields</div>
+                  <div className="font-medium mt-1">
+                    {(webhookStatus.webhookFields || []).length
+                      ? webhookStatus.webhookFields.join(", ")
+                      : "—"}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Button variant="outline" onClick={openLastWebhookPayload} disabled={!clientId}>
+                      View Last Payload
+                    </Button>
+
+                    <div className="text-xs text-slate-600">
+                      Test tip: add a <b>comment</b> on your Page post, then click <b>Refresh Status</b>. (Requires <b>feed</b> subscription)
+                    </div>
+                  </div>
+
+                  {subscribeError ? (
+                    <div className="mt-2 text-xs text-red-600">
+                      {subscribeError}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -397,7 +479,9 @@ export default function ClientDashboard() {
             </CardHeader>
             <CardContent className="text-center">
               <div className="text-3xl font-bold text-slate-900">{(remaining ?? 0).toLocaleString()}</div>
-              <p className="text-slate-500 text-sm mt-1">{(((remaining ?? 0) / (quota || 1)) * 100).toFixed(0)}% left</p>
+              <p className="text-slate-500 text-sm mt-1">
+                {(((remaining ?? 0) / (quota || 1)) * 100).toFixed(0)}% left
+              </p>
             </CardContent>
           </Card>
 
@@ -493,13 +577,11 @@ export default function ClientDashboard() {
         {/* Conversations Section */}
         <Card className="p-5">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
-            {/* Left side */}
             <div className="flex items-center gap-3">
               <Users size={18} className="text-sky-500" />
               <h2 className="text-xl font-semibold text-slate-900">Your Conversations</h2>
             </div>
 
-            {/* Right side */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <select
                 value={selectedSource}
@@ -518,7 +600,6 @@ export default function ClientDashboard() {
             </div>
           </div>
 
-          {/* quick preview area (keeps original functionality — listing handled in modal) */}
           <div className="text-sm text-slate-500">
             Click "View All" to open the conversations modal with full list and export options.
           </div>
@@ -541,13 +622,11 @@ export default function ClientDashboard() {
                   try {
                     if (!clientId) return;
 
-                    // 1️⃣ Fetch full client object from backend
                     const res = await fetch(`https://serverowned.onrender.com/api/clients/${clientId}`, {
                       credentials: "include",
                     });
                     const client = await res.json();
 
-                    // 2️⃣ Toggle active
                     const newActive = !client.active;
 
                     await fetch(`https://serverowned.onrender.com/api/clients/${client.clientId}`, {
@@ -557,7 +636,6 @@ export default function ClientDashboard() {
                       body: JSON.stringify({ ...client, active: newActive }),
                     });
 
-                    // 3️⃣ Refresh state from backend
                     await fetchHandoverStatus();
                     await fetchStats();
                   } catch (err) {
@@ -580,12 +658,12 @@ export default function ClientDashboard() {
       <Dialog open={showConvoModal} onOpenChange={setShowConvoModal}>
         <DialogContent
           className="
-      max-w-3xl 
-      max-h-[90vh]       /* prevents it from going off screen */
-      overflow-y-auto    /* scroll inside modal */
-      top-1/2 left-1/2   /* center */
-      translate-x-[-50%] translate-y-[-50%]
-    "
+            max-w-3xl 
+            max-h-[90vh]
+            overflow-y-auto
+            top-1/2 left-1/2
+            translate-x-[-50%] translate-y-[-50%]
+          "
         >
           <DialogHeader>
             <DialogTitle>Client Conversations</DialogTitle>
@@ -644,6 +722,33 @@ export default function ClientDashboard() {
               Export CSV
             </Button>
             <Button onClick={() => setShowConvoModal(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ✅ NEW: Last Webhook Payload Modal */}
+      <Dialog open={showWebhookModal} onOpenChange={setShowWebhookModal}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Last Webhook Payload</DialogTitle>
+          </DialogHeader>
+
+          <div className="text-sm text-slate-600">
+            {lastWebhookPayload ? (
+              <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
+                {JSON.stringify(lastWebhookPayload, null, 2)}
+              </pre>
+            ) : (
+              <div className="text-slate-500">
+                No payload available yet. Trigger an event (e.g., comment on a Page post) then try again.
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowWebhookModal(false)}>
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
