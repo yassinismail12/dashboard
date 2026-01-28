@@ -429,18 +429,7 @@ const extractMessagesFromPayload = (payload) => {
                     {isSubscribing ? "Enabling..." : "Enable Webhooks"}
                   </Button>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-sm">
-                <div className="bg-white rounded-lg p-3 border">
-                  <div className="text-slate-500 text-xs">Status</div>
-                  <div className="font-medium">
-                    {webhookStatus.webhookSubscribed ? "✅ Active" : "❌ Not Active"}
-                  </div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    Subscribed At: {formatDateTime(webhookStatus.webhookSubscribedAt)}
-                  </div>
-                </div>
+           
 
                 <div className="bg-white rounded-lg p-3 border">
                   <div className="text-slate-500 text-xs">Last webhook received</div>
