@@ -128,7 +128,7 @@ const r = await fetch("https://serverowned.onrender.com/api/review/send-test", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   credentials: "include",
-  body: JSON.stringify({ pageId, psid, text: "Test message..." }),
+  body: JSON.stringify({ pageId, psid, text: "Your appointment has been scheduled." }),
 });
 
 
