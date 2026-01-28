@@ -15,6 +15,8 @@ export default function ClientDashboard() {
   });
   const [mode, setMode] = useState("weekly");
   const [chartData, setChartData] = useState([]);
+  const [showMessagesOnly, setShowMessagesOnly] = useState(false);
+
   const [selectedSource, setSelectedSource] = useState("all");
   const [conversationStats, setConversationStats] = useState({
     totalConversations: 0,
@@ -427,29 +429,48 @@ export default function ClientDashboard() {
                 </div>
 
                 <div className="bg-white rounded-lg p-3 border sm:col-span-2">
-                  <div className="text-slate-500 text-xs">Subscribed fields</div>
-                  <div className="font-medium mt-1">
-                    {(webhookStatus.webhookFields || []).length
-                      ? webhookStatus.webhookFields.join(", ")
-                      : "—"}
-                  </div>
+  <div className="flex items-center justify-between">
+    <div className="text-slate-500 text-xs">Subscribed fields</div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <Button variant="outline" onClick={openLastWebhookPayload} disabled={!clientId}>
-                      View Last Payload
-                    </Button>
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={() => setShowMessagesOnly((v) => !v)}
+    >
+      {showMessagesOnly ? "Show all" : "Show messages only"}
+    </Button>
+  </div>
 
-                    <div className="text-xs text-slate-600">
-                      Test tip: add a <b>comment</b> on your Page post, then click <b>Refresh Status</b>. (Requires <b>feed</b> subscription)
-                    </div>
-                  </div>
+  <div className="font-medium mt-2">
+    {(webhookStatus.webhookFields || []).length ? (
+      showMessagesOnly ? (
+        webhookStatus.webhookFields.includes("messages")
+          ? "messages"
+          : "—"
+      ) : (
+        webhookStatus.webhookFields.join(", ")
+      )
+    ) : (
+      "—"
+    )}
+  </div>
 
-                  {subscribeError ? (
-                    <div className="mt-2 text-xs text-red-600">
-                      {subscribeError}
-                    </div>
-                  ) : null}
-                </div>
+  <div className="mt-3 flex flex-wrap items-center gap-2">
+    <Button variant="outline" onClick={openLastWebhookPayload} disabled={!clientId}>
+      View Last Payload
+    </Button>
+
+    <div className="text-xs text-slate-600">
+      Test tip: add a <b>comment</b> on your Page post, then click <b>Refresh Status</b>.
+      (Requires <b>feed</b>)
+    </div>
+  </div>
+
+  {subscribeError ? (
+    <div className="mt-2 text-xs text-red-600">{subscribeError}</div>
+  ) : null}
+</div>
+
               </div>
             </div>
           </CardContent>
