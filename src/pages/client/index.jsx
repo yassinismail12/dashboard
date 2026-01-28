@@ -27,6 +27,7 @@ export default function ClientDashboard() {
   const [currentConvos, setCurrentConvos] = useState([]);
   const [humanRequests, setHumanRequests] = useState(0);
   const [tourRequests, setTourRequests] = useState(0);
+const [payloadViewMode, setPayloadViewMode] = useState("full"); // "full" | "messages"
 
   const navigate = useNavigate();
   const [clientId, setClientId] = useState(null);
@@ -152,20 +153,27 @@ export default function ClientDashboard() {
 
   // ✅ NEW: View last webhook payload (optional but strong for review)
   const openLastWebhookPayload = async () => {
-    try {
-      if (!clientId) return;
-      const res = await fetch(`https://serverowned.onrender.com/api/webhooks/last/${clientId}`, {
-        credentials: "include",
-      });
-      const data = await res.json();
-      setLastWebhookPayload(data || null);
-      setShowWebhookModal(true);
-    } catch (err) {
-      console.error("Error fetching last webhook payload:", err);
-      setLastWebhookPayload(null);
-      setShowWebhookModal(true);
-    }
-  };
+  try {
+    if (!clientId) return;
+    const res = await fetch(`https://serverowned.onrender.com/api/webhooks/last/${clientId}`, {
+      credentials: "include",
+    });
+    const data = await res.json();
+
+    setLastWebhookPayload(data || null);
+
+    const msgs = extractMessagesFromPayload(data);
+    setPayloadViewMode(msgs ? "messages" : "full"); // auto switch if messages exist
+
+    setShowWebhookModal(true);
+  } catch (err) {
+    console.error("Error fetching last webhook payload:", err);
+    setLastWebhookPayload(null);
+    setPayloadViewMode("full");
+    setShowWebhookModal(true);
+  }
+};
+
 
   // 🔹 Fetch chart data when mode changes
   useEffect(() => {
@@ -266,6 +274,20 @@ export default function ClientDashboard() {
     dl.click();
     dl.remove();
   };
+const extractMessagesFromPayload = (payload) => {
+  if (!payload) return null;
+
+  // Your /api/webhooks/last returns { lastWebhookAt, lastWebhookType, lastWebhookPayload }
+  const raw = payload?.lastWebhookPayload || payload;
+
+  // Messenger webhooks look like: { entry: [ { messaging: [...] } ] }
+  const entries = raw?.entry || [];
+  const messagingEvents = entries
+    .flatMap((e) => e?.messaging || [])
+    .filter(Boolean);
+
+  return messagingEvents.length ? messagingEvents : null;
+};
 
   async function fetchConversationStats() {
     try {
@@ -748,31 +770,69 @@ export default function ClientDashboard() {
       </Dialog>
 
       {/* ✅ NEW: Last Webhook Payload Modal */}
-      <Dialog open={showWebhookModal} onOpenChange={setShowWebhookModal}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Last Webhook Payload</DialogTitle>
-          </DialogHeader>
+     {/* ✅ NEW: Last Webhook Payload Modal */}
+<Dialog open={showWebhookModal} onOpenChange={setShowWebhookModal}>
+  <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle>Last Webhook Payload</DialogTitle>
+    </DialogHeader>
 
-          <div className="text-sm text-slate-600">
-            {lastWebhookPayload ? (
-              <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
-                {JSON.stringify(lastWebhookPayload, null, 2)}
-              </pre>
-            ) : (
-              <div className="text-slate-500">
-                No payload available yet. Trigger an event (e.g., comment on a Page post) then try again.
-              </div>
-            )}
-          </div>
+    <div className="flex items-center justify-between gap-2 mb-3">
+      <div className="text-xs text-slate-600">
+        Showing: <b>{payloadViewMode === "messages" ? "Messages only" : "Full payload"}</b>
+      </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowWebhookModal(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant={payloadViewMode === "full" ? "default" : "outline"}
+          onClick={() => setPayloadViewMode("full")}
+        >
+          Full
+        </Button>
+
+        <Button
+          size="sm"
+          variant={payloadViewMode === "messages" ? "default" : "outline"}
+          onClick={() => setPayloadViewMode("messages")}
+        >
+          Messages only
+        </Button>
+      </div>
+    </div>
+
+    <div className="text-sm text-slate-600">
+      {lastWebhookPayload ? (
+        (() => {
+          const full = lastWebhookPayload;
+          const messagesOnly = extractMessagesFromPayload(lastWebhookPayload);
+
+          const dataToShow =
+            payloadViewMode === "messages"
+              ? (messagesOnly || { note: "No messaging events found in this payload." })
+              : full;
+
+          return (
+            <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
+              {JSON.stringify(dataToShow, null, 2)}
+            </pre>
+          );
+        })()
+      ) : (
+        <div className="text-slate-500">
+          No payload available yet. Trigger an event (message the Page) then try again.
+        </div>
+      )}
+    </div>
+
+    <DialogFooter>
+      <Button variant="outline" onClick={() => setShowWebhookModal(false)}>
+        Close
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+
     </div>
   );
 }
