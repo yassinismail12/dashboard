@@ -122,6 +122,21 @@ const [payloadViewMode, setPayloadViewMode] = useState("full"); // "full" | "mes
       console.error("Error fetching webhook status:", err);
     }
   };
+async function sendReviewTest(pageId, psid) {
+  const r = await fetch("/api/review/send-test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      pageId,
+      psid,
+      text: "Test message sent from the app dashboard ✅",
+    }),
+  });
+
+  const data = await r.json();
+  if (data.ok) alert("Sent ✅");
+  else alert("Failed ❌ (check server logs)");
+}
 
   // ✅ NEW: Enable webhooks (subscribe) (review proof)
   const enableWebhooks = async () => {
@@ -605,6 +620,9 @@ const extractMessagesFromPayload = (payload) => {
             </ResponsiveContainer>
           </div>
         </Card>
+<button onClick={() => sendReviewTest(pageId, psid)}>
+  Send test message (Meta Send API)
+</button>
 
         {/* Conversations Section */}
         <Card className="p-5">
