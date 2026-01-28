@@ -16,6 +16,7 @@ export default function ClientDashboard() {
   const [mode, setMode] = useState("weekly");
   const [chartData, setChartData] = useState([]);
   const [showMessagesOnly, setShowMessagesOnly] = useState(false);
+const [testPsid, setTestPsid] = useState("33461378173508614");
 
   const [selectedSource, setSelectedSource] = useState("all");
   const [conversationStats, setConversationStats] = useState({
@@ -123,15 +124,13 @@ const [payloadViewMode, setPayloadViewMode] = useState("full"); // "full" | "mes
     }
   };
 async function sendReviewTest(pageId, psid) {
-  const r = await fetch("/api/review/send-test", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      pageId,
-      psid,
-      text: "Test message sent from the app dashboard ✅",
-    }),
-  });
+const r = await fetch("https://serverowned.onrender.com/api/review/send-test", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "include",
+  body: JSON.stringify({ pageId, psid, text: "Test message..." }),
+});
+
 
   const data = await r.json();
   if (data.ok) alert("Sent ✅");
@@ -620,9 +619,16 @@ const extractMessagesFromPayload = (payload) => {
             </ResponsiveContainer>
           </div>
         </Card>
-<button onClick={() => sendReviewTest(pageId, psid)}>
+        <input
+  value={testPsid}
+  onChange={(e) => setTestPsid(e.target.value)}
+  className="border rounded p-2 text-sm w-full"
+/>
+
+<Button onClick={() => sendReviewTest(pageId, testPsid)}>
   Send test message (Meta Send API)
-</button>
+</Button>
+
 
         {/* Conversations Section */}
         <Card className="p-5">
