@@ -16,19 +16,20 @@ export default function ClientDashboard() {
   const [mode, setMode] = useState("weekly");
   const [chartData, setChartData] = useState([]);
   const [showMessagesOnly, setShowMessagesOnly] = useState(false);
-const [testPsid, setTestPsid] = useState("33461378173508614");
+  const [testPsid, setTestPsid] = useState("33461378173508614");
 
   const [selectedSource, setSelectedSource] = useState("all");
   const [conversationStats, setConversationStats] = useState({
     totalConversations: 0,
     avgMessages: 0,
     activeToday: 0,
+    bySource: { web: 0, messenger: 0, instagram: 0, whatsapp: 0 }, // ✅ added whatsapp
   });
   const [showConvoModal, setShowConvoModal] = useState(false);
   const [currentConvos, setCurrentConvos] = useState([]);
   const [humanRequests, setHumanRequests] = useState(0);
   const [tourRequests, setTourRequests] = useState(0);
-const [payloadViewMode, setPayloadViewMode] = useState("full"); // "full" | "messages"
+  const [payloadViewMode, setPayloadViewMode] = useState("full"); // "full" | "messages"
 
   const navigate = useNavigate();
   const [clientId, setClientId] = useState(null);
@@ -123,19 +124,19 @@ const [payloadViewMode, setPayloadViewMode] = useState("full"); // "full" | "mes
       console.error("Error fetching webhook status:", err);
     }
   };
-async function sendReviewTest(pageId, psid) {
-const r = await fetch("https://serverowned.onrender.com/api/review/send-test", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  credentials: "include",
-  body: JSON.stringify({ pageId, psid, text: "Your appointment has been scheduled." }),
-});
 
+  async function sendReviewTest(pageId, psid) {
+    const r = await fetch("https://serverowned.onrender.com/api/review/send-test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ pageId, psid, text: "Your appointment has been scheduled." }),
+    });
 
-  const data = await r.json();
-  if (data.ok) alert("Sent ✅");
-  else alert("Failed ❌ (check server logs)");
-}
+    const data = await r.json();
+    if (data.ok) alert("Sent ✅");
+    else alert("Failed ❌ (check server logs)");
+  }
 
   // ✅ NEW: Enable webhooks (subscribe) (review proof)
   const enableWebhooks = async () => {
@@ -165,29 +166,51 @@ const r = await fetch("https://serverowned.onrender.com/api/review/send-test", {
     }
   };
 
+  // ✅ Extract messages from last webhook payload (supports Messenger + WhatsApp)
+  const extractMessagesFromPayload = (payload) => {
+    if (!payload) return null;
+
+    // Your /api/webhooks/last returns { lastWebhookAt, lastWebhookType, lastWebhookPayload }
+    const raw = payload?.lastWebhookPayload || payload;
+
+    // ✅ WhatsApp webhooks: entry -> changes -> value.messages
+    const waMessages = (raw?.entry || [])
+      .flatMap((e) => e?.changes || [])
+      .flatMap((c) => c?.value?.messages || [])
+      .filter(Boolean);
+
+    if (waMessages.length) return waMessages;
+
+    // ✅ Messenger webhooks: entry -> messaging
+    const messagingEvents = (raw?.entry || [])
+      .flatMap((e) => e?.messaging || [])
+      .filter(Boolean);
+
+    return messagingEvents.length ? messagingEvents : null;
+  };
+
   // ✅ NEW: View last webhook payload (optional but strong for review)
   const openLastWebhookPayload = async () => {
-  try {
-    if (!clientId) return;
-    const res = await fetch(`https://serverowned.onrender.com/api/webhooks/last/${clientId}`, {
-      credentials: "include",
-    });
-    const data = await res.json();
+    try {
+      if (!clientId) return;
+      const res = await fetch(`https://serverowned.onrender.com/api/webhooks/last/${clientId}`, {
+        credentials: "include",
+      });
+      const data = await res.json();
 
-    setLastWebhookPayload(data || null);
+      setLastWebhookPayload(data || null);
 
-    const msgs = extractMessagesFromPayload(data);
-    setPayloadViewMode(msgs ? "messages" : "full"); // auto switch if messages exist
+      const msgs = extractMessagesFromPayload(data);
+      setPayloadViewMode(msgs ? "messages" : "full"); // auto switch if messages exist
 
-    setShowWebhookModal(true);
-  } catch (err) {
-    console.error("Error fetching last webhook payload:", err);
-    setLastWebhookPayload(null);
-    setPayloadViewMode("full");
-    setShowWebhookModal(true);
-  }
-};
-
+      setShowWebhookModal(true);
+    } catch (err) {
+      console.error("Error fetching last webhook payload:", err);
+      setLastWebhookPayload(null);
+      setPayloadViewMode("full");
+      setShowWebhookModal(true);
+    }
+  };
 
   // 🔹 Fetch chart data when mode changes
   useEffect(() => {
@@ -288,20 +311,6 @@ const r = await fetch("https://serverowned.onrender.com/api/review/send-test", {
     dl.click();
     dl.remove();
   };
-const extractMessagesFromPayload = (payload) => {
-  if (!payload) return null;
-
-  // Your /api/webhooks/last returns { lastWebhookAt, lastWebhookType, lastWebhookPayload }
-  const raw = payload?.lastWebhookPayload || payload;
-
-  // Messenger webhooks look like: { entry: [ { messaging: [...] } ] }
-  const entries = raw?.entry || [];
-  const messagingEvents = entries
-    .flatMap((e) => e?.messaging || [])
-    .filter(Boolean);
-
-  return messagingEvents.length ? messagingEvents : null;
-};
 
   async function fetchConversationStats() {
     try {
@@ -328,6 +337,7 @@ const extractMessagesFromPayload = (payload) => {
           web: data.filter((c) => c.source === "web").length,
           messenger: data.filter((c) => c.source === "messenger").length,
           instagram: data.filter((c) => c.source === "instagram").length,
+          whatsapp: data.filter((c) => c.source === "whatsapp").length, // ✅ added whatsapp
         };
 
         setConversationStats({
@@ -357,7 +367,7 @@ const extractMessagesFromPayload = (payload) => {
   };
 
   useEffect(() => {
-    if (showConvoModal) viewConvos();
+    if (showConvoModal) viewConvos(clientId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSource, showConvoModal]);
 
@@ -416,16 +426,14 @@ const extractMessagesFromPayload = (payload) => {
 
             <Button
               onClick={() => {
-                window.location.href = `https://serverowned.onrender.com/auth/facebook?clientId=${encodeURIComponent(
-                  clientId
-                )}`;
+                window.location.href = `https://serverowned.onrender.com/auth/facebook?clientId=${encodeURIComponent(clientId)}`;
               }}
               className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg"
             >
               Connect Facebook Page
             </Button>
 
-            {/* ✅ NEW: Webhook Subscription (review proof) */}
+            {/* ✅ Webhook Subscription (review proof) */}
             <div className="mt-4 border rounded-xl p-4 bg-slate-50">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -443,59 +451,46 @@ const extractMessagesFromPayload = (payload) => {
                     {isSubscribing ? "Enabling..." : "Enable Webhooks"}
                   </Button>
                 </div>
-           
 
                 <div className="bg-white rounded-lg p-3 border">
                   <div className="text-slate-500 text-xs">Last webhook received</div>
                   <div className="font-medium">{formatDateTime(webhookStatus.lastWebhookAt)}</div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    Type: {webhookStatus.lastWebhookType || "—"}
-                  </div>
+                  <div className="text-xs text-slate-500 mt-1">Type: {webhookStatus.lastWebhookType || "—"}</div>
                 </div>
 
                 <div className="bg-white rounded-lg p-3 border sm:col-span-2">
-  <div className="flex items-center justify-between">
-    <div className="text-slate-500 text-xs">Subscribed fields</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-slate-500 text-xs">Subscribed fields</div>
 
-    <Button
-      size="sm"
-      variant="outline"
-      onClick={() => setShowMessagesOnly((v) => !v)}
-    >
-      {showMessagesOnly ? "Show all" : "Show messages only"}
-    </Button>
-  </div>
+                    <Button size="sm" variant="outline" onClick={() => setShowMessagesOnly((v) => !v)}>
+                      {showMessagesOnly ? "Show all" : "Show messages only"}
+                    </Button>
+                  </div>
 
-  <div className="font-medium mt-2">
-    {(webhookStatus.webhookFields || []).length ? (
-      showMessagesOnly ? (
-        webhookStatus.webhookFields.includes("messages")
-          ? "messages"
-          : "—"
-      ) : (
-        webhookStatus.webhookFields.join(", ")
-      )
-    ) : (
-      "—"
-    )}
-  </div>
+                  <div className="font-medium mt-2">
+                    {(webhookStatus.webhookFields || []).length ? (
+                      showMessagesOnly ? (
+                        webhookStatus.webhookFields.includes("messages") ? "messages" : "—"
+                      ) : (
+                        webhookStatus.webhookFields.join(", ")
+                      )
+                    ) : (
+                      "—"
+                    )}
+                  </div>
 
-  <div className="mt-3 flex flex-wrap items-center gap-2">
-    <Button variant="outline" onClick={openLastWebhookPayload} disabled={!clientId}>
-      View Last Payload
-    </Button>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Button variant="outline" onClick={openLastWebhookPayload} disabled={!clientId}>
+                      View Last Payload
+                    </Button>
 
-    <div className="text-xs text-slate-600">
-      Test tip: add a <b>comment</b> on your Page post, then click <b>Refresh Status</b>.
-      (Requires <b>feed</b>)
-    </div>
-  </div>
+                    <div className="text-xs text-slate-600">
+                      Test tip: add a <b>comment</b> on your Page post, then click <b>Refresh Status</b>. (Requires <b>feed</b>)
+                    </div>
+                  </div>
 
-  {subscribeError ? (
-    <div className="mt-2 text-xs text-red-600">{subscribeError}</div>
-  ) : null}
-</div>
-
+                  {subscribeError ? <div className="mt-2 text-xs text-red-600">{subscribeError}</div> : null}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -525,9 +520,7 @@ const extractMessagesFromPayload = (payload) => {
             </CardHeader>
             <CardContent className="text-center">
               <div className="text-3xl font-bold text-slate-900">{(remaining ?? 0).toLocaleString()}</div>
-              <p className="text-slate-500 text-sm mt-1">
-                {(((remaining ?? 0) / (quota || 1)) * 100).toFixed(0)}% left
-              </p>
+              <p className="text-slate-500 text-sm mt-1">{(((remaining ?? 0) / (quota || 1)) * 100).toFixed(0)}% left</p>
             </CardContent>
           </Card>
 
@@ -553,6 +546,9 @@ const extractMessagesFromPayload = (payload) => {
                 </p>
                 <p>
                   <span className="font-medium">Instagram:</span> {conversationStats.bySource?.instagram ?? 0}
+                </p>
+                <p>
+                  <span className="font-medium">WhatsApp:</span> {conversationStats.bySource?.whatsapp ?? 0}
                 </p>
               </div>
             </CardContent>
@@ -619,16 +615,10 @@ const extractMessagesFromPayload = (payload) => {
             </ResponsiveContainer>
           </div>
         </Card>
-        <input
-  value={testPsid}
-  onChange={(e) => setTestPsid(e.target.value)}
-  className="border rounded p-2 text-sm w-full"
-/>
 
-<Button onClick={() => sendReviewTest(pageId, testPsid)}>
-  Send test message (Meta Send API)
-</Button>
+        <input value={testPsid} onChange={(e) => setTestPsid(e.target.value)} className="border rounded p-2 text-sm w-full" />
 
+        <Button onClick={() => sendReviewTest(pageId, testPsid)}>Send test message (Meta Send API)</Button>
 
         {/* Conversations Section */}
         <Card className="p-5">
@@ -648,6 +638,7 @@ const extractMessagesFromPayload = (payload) => {
                 <option value="web">Web</option>
                 <option value="messenger">Messenger</option>
                 <option value="instagram">Instagram</option>
+                <option value="whatsapp">WhatsApp</option> {/* ✅ added */}
               </select>
 
               <Button className="w-full sm:w-auto" onClick={() => viewConvos(clientId)}>
@@ -656,9 +647,7 @@ const extractMessagesFromPayload = (payload) => {
             </div>
           </div>
 
-          <div className="text-sm text-slate-500">
-            Click "View All" to open the conversations modal with full list and export options.
-          </div>
+          <div className="text-sm text-slate-500">Click "View All" to open the conversations modal with full list and export options.</div>
         </Card>
 
         {/* Agent Handover */}
@@ -667,9 +656,7 @@ const extractMessagesFromPayload = (payload) => {
             <CardTitle className="text-lg font-semibold">Agent Handover</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-gray-600">
-              Toggle active status to allow agents to take over your conversations.
-            </p>
+            <p className="text-sm text-gray-600">Toggle active status to allow agents to take over your conversations.</p>
 
             <div className="flex gap-3 items-center">
               <Button
@@ -712,36 +699,25 @@ const extractMessagesFromPayload = (payload) => {
 
       {/* Conversations Modal */}
       <Dialog open={showConvoModal} onOpenChange={setShowConvoModal}>
-        <DialogContent
-          className="
-            max-w-3xl 
-            max-h-[90vh]
-            overflow-y-auto
-            top-1/2 left-1/2
-            translate-x-[-50%] translate-y-[-50%]
-          "
-        >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto top-1/2 left-1/2 translate-x-[-50%] translate-y-[-50%]">
           <DialogHeader>
             <DialogTitle>Client Conversations</DialogTitle>
 
-            <div className="flex gap-2 mt-3 mb-2">
+            <div className="flex gap-2 mt-3 mb-2 flex-wrap">
               <Button variant={selectedSource === "all" ? "default" : "outline"} onClick={() => setSelectedSource("all")}>
                 All
               </Button>
               <Button variant={selectedSource === "web" ? "default" : "outline"} onClick={() => setSelectedSource("web")}>
                 Web
               </Button>
-              <Button
-                variant={selectedSource === "messenger" ? "default" : "outline"}
-                onClick={() => setSelectedSource("messenger")}
-              >
+              <Button variant={selectedSource === "messenger" ? "default" : "outline"} onClick={() => setSelectedSource("messenger")}>
                 Messenger
               </Button>
-              <Button
-                variant={selectedSource === "instagram" ? "default" : "outline"}
-                onClick={() => setSelectedSource("instagram")}
-              >
+              <Button variant={selectedSource === "instagram" ? "default" : "outline"} onClick={() => setSelectedSource("instagram")}>
                 Instagram
+              </Button>
+              <Button variant={selectedSource === "whatsapp" ? "default" : "outline"} onClick={() => setSelectedSource("whatsapp")}>
+                WhatsApp
               </Button>
             </div>
           </DialogHeader>
@@ -752,7 +728,8 @@ const extractMessagesFromPayload = (payload) => {
                 <div key={idx} className="border rounded-lg p-3 bg-white shadow-sm">
                   <p className="text-red-500 font-semibold mb-1">Conversation #{idx + 1}</p>
 
-                  <p className="font-medium">{c.user}</p>
+                  {/* Your backend might return userId, user, or psid depending on source */}
+                  <p className="font-medium">{c.user || c.userId || c.psid || "Unknown user"}</p>
                   <div className="pl-2 space-y-2 mt-2">
                     {c.history?.map((msg, i) => (
                       <p key={i} className="text-sm">
@@ -782,70 +759,62 @@ const extractMessagesFromPayload = (payload) => {
         </DialogContent>
       </Dialog>
 
-      {/* ✅ NEW: Last Webhook Payload Modal */}
-     {/* ✅ NEW: Last Webhook Payload Modal */}
-<Dialog open={showWebhookModal} onOpenChange={setShowWebhookModal}>
-  <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-    <DialogHeader>
-      <DialogTitle>Last Webhook Payload</DialogTitle>
-    </DialogHeader>
+      {/* ✅ Last Webhook Payload Modal */}
+      <Dialog open={showWebhookModal} onOpenChange={setShowWebhookModal}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Last Webhook Payload</DialogTitle>
+          </DialogHeader>
 
-    <div className="flex items-center justify-between gap-2 mb-3">
-      <div className="text-xs text-slate-600">
-        Showing: <b>{payloadViewMode === "messages" ? "Messages only" : "Full payload"}</b>
-      </div>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="text-xs text-slate-600">
+              Showing: <b>{payloadViewMode === "messages" ? "Messages only" : "Full payload"}</b>
+            </div>
 
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          variant={payloadViewMode === "full" ? "default" : "outline"}
-          onClick={() => setPayloadViewMode("full")}
-        >
-          Full
-        </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant={payloadViewMode === "full" ? "default" : "outline"} onClick={() => setPayloadViewMode("full")}>
+                Full
+              </Button>
 
-        <Button
-          size="sm"
-          variant={payloadViewMode === "messages" ? "default" : "outline"}
-          onClick={() => setPayloadViewMode("messages")}
-        >
-          Messages only
-        </Button>
-      </div>
-    </div>
+              <Button
+                size="sm"
+                variant={payloadViewMode === "messages" ? "default" : "outline"}
+                onClick={() => setPayloadViewMode("messages")}
+              >
+                Messages only
+              </Button>
+            </div>
+          </div>
 
-    <div className="text-sm text-slate-600">
-      {lastWebhookPayload ? (
-        (() => {
-          const full = lastWebhookPayload;
-          const messagesOnly = extractMessagesFromPayload(lastWebhookPayload);
+          <div className="text-sm text-slate-600">
+            {lastWebhookPayload ? (
+              (() => {
+                const full = lastWebhookPayload;
+                const messagesOnly = extractMessagesFromPayload(lastWebhookPayload);
 
-          const dataToShow =
-            payloadViewMode === "messages"
-              ? (messagesOnly || { note: "No messaging events found in this payload." })
-              : full;
+                const dataToShow =
+                  payloadViewMode === "messages"
+                    ? messagesOnly || { note: "No message events found in this payload." }
+                    : full;
 
-          return (
-            <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
-              {JSON.stringify(dataToShow, null, 2)}
-            </pre>
-          );
-        })()
-      ) : (
-        <div className="text-slate-500">
-          No payload available yet. Trigger an event (message the Page) then try again.
-        </div>
-      )}
-    </div>
+                return (
+                  <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
+                    {JSON.stringify(dataToShow, null, 2)}
+                  </pre>
+                );
+              })()
+            ) : (
+              <div className="text-slate-500">No payload available yet. Trigger an event then try again.</div>
+            )}
+          </div>
 
-    <DialogFooter>
-      <Button variant="outline" onClick={() => setShowWebhookModal(false)}>
-        Close
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
-
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowWebhookModal(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
