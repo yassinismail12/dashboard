@@ -658,7 +658,7 @@ export default function Dashboard() {
                 />
                 <Input placeholder="Client ID" value={form.clientId || ""} onChange={(e) => setForm({ ...form, clientId: e.target.value })} />
                 <Input
-                  type="number"
+                 
                   placeholder="Page ID"
                   value={form.pageId || ""}
                   onChange={(e) => setForm({ ...form, pageId: Number(e.target.value) })}
