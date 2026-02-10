@@ -13,6 +13,7 @@ export default function ClientDashboard() {
     quota: 1000,
     weeklyData: [],
   });
+
   const [mode, setMode] = useState("weekly");
   const [chartData, setChartData] = useState([]);
   const [showMessagesOnly, setShowMessagesOnly] = useState(false);
@@ -23,25 +24,23 @@ export default function ClientDashboard() {
     totalConversations: 0,
     avgMessages: 0,
     activeToday: 0,
-    bySource: { web: 0, messenger: 0, instagram: 0, whatsapp: 0 }, // ✅ added whatsapp
+    bySource: { web: 0, messenger: 0, instagram: 0, whatsapp: 0 },
   });
+
   const [showConvoModal, setShowConvoModal] = useState(false);
   const [currentConvos, setCurrentConvos] = useState([]);
   const [humanRequests, setHumanRequests] = useState(0);
   const [tourRequests, setTourRequests] = useState(0);
-  const [payloadViewMode, setPayloadViewMode] = useState("full"); // "full" | "messages"
+  const [payloadViewMode, setPayloadViewMode] = useState("full");
 
   const navigate = useNavigate();
   const [clientId, setClientId] = useState(null);
 
-  // 🔹 Agent Handover State
   const [handoverEnabled, setHandoverEnabled] = useState(false);
 
-  // ✅ Page Connection State
   const [pageName, setPageName] = useState("");
   const [pageId, setPageId] = useState("");
 
-  // ✅ Webhook Review Proof State
   const [webhookStatus, setWebhookStatus] = useState({
     webhookSubscribed: false,
     webhookFields: [],
@@ -49,10 +48,15 @@ export default function ClientDashboard() {
     lastWebhookAt: null,
     lastWebhookType: "",
   });
+
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [subscribeError, setSubscribeError] = useState("");
   const [showWebhookModal, setShowWebhookModal] = useState(false);
   const [lastWebhookPayload, setLastWebhookPayload] = useState(null);
+
+  // ✅ NEW: health/warnings state
+  const [health, setHealth] = useState({ status: "ok", warnings: [] });
+  const [healthLoading, setHealthLoading] = useState(false);
 
   // 🔹 Get user info from /api/me
   useEffect(() => {
@@ -85,9 +89,43 @@ export default function ClientDashboard() {
     fetchConversationStats();
     fetchHandoverStatus();
     fetchClientPageConnection();
-    fetchWebhookStatus(); // ✅ NEW
+    fetchWebhookStatus();
+    fetchClientHealth(); // ✅ NEW
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
+
+  // ✅ NEW: Fetch warnings/health
+  const fetchClientHealth = async () => {
+    try {
+      if (!clientId) return;
+      setHealthLoading(true);
+
+      const res = await fetch(`https://serverowned.onrender.com/api/clients/${clientId}/health`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setHealth({
+          status: data.status || "ok",
+          warnings: Array.isArray(data.warnings) ? data.warnings : [],
+        });
+      } else {
+        setHealth({
+          status: "warning",
+          warnings: [{ code: "HEALTH_FETCH_FAILED", severity: "warn", message: data?.error || "Could not load warnings." }],
+        });
+      }
+    } catch (err) {
+      console.error("Error fetching client health:", err);
+      setHealth({
+        status: "warning",
+        warnings: [{ code: "HEALTH_NETWORK", severity: "warn", message: "Could not load warnings (network/server error)." }],
+      });
+    } finally {
+      setHealthLoading(false);
+    }
+  };
 
   // ✅ Fetch client object to show PAGE_NAME if connected
   const fetchClientPageConnection = async () => {
@@ -103,7 +141,7 @@ export default function ClientDashboard() {
     }
   };
 
-  // ✅ NEW: Fetch webhook status (review proof)
+  // ✅ Fetch webhook status
   const fetchWebhookStatus = async () => {
     try {
       if (!clientId) return;
@@ -138,7 +176,7 @@ export default function ClientDashboard() {
     else alert("Failed ❌ (check server logs)");
   }
 
-  // ✅ NEW: Enable webhooks (subscribe) (review proof)
+  // ✅ Enable webhooks
   const enableWebhooks = async () => {
     try {
       if (!clientId) return;
@@ -156,8 +194,8 @@ export default function ClientDashboard() {
         setSubscribeError(data?.error || "Subscription failed (no success=true returned)");
       }
 
-      // Refresh status after attempt
       await fetchWebhookStatus();
+      await fetchClientHealth(); // ✅ refresh warnings after action
     } catch (err) {
       console.error("Enable webhooks error:", err);
       setSubscribeError("Subscription failed (network/server error)");
@@ -166,14 +204,11 @@ export default function ClientDashboard() {
     }
   };
 
-  // ✅ Extract messages from last webhook payload (supports Messenger + WhatsApp)
   const extractMessagesFromPayload = (payload) => {
     if (!payload) return null;
 
-    // Your /api/webhooks/last returns { lastWebhookAt, lastWebhookType, lastWebhookPayload }
     const raw = payload?.lastWebhookPayload || payload;
 
-    // ✅ WhatsApp webhooks: entry -> changes -> value.messages
     const waMessages = (raw?.entry || [])
       .flatMap((e) => e?.changes || [])
       .flatMap((c) => c?.value?.messages || [])
@@ -181,7 +216,6 @@ export default function ClientDashboard() {
 
     if (waMessages.length) return waMessages;
 
-    // ✅ Messenger webhooks: entry -> messaging
     const messagingEvents = (raw?.entry || [])
       .flatMap((e) => e?.messaging || [])
       .filter(Boolean);
@@ -189,7 +223,6 @@ export default function ClientDashboard() {
     return messagingEvents.length ? messagingEvents : null;
   };
 
-  // ✅ NEW: View last webhook payload (optional but strong for review)
   const openLastWebhookPayload = async () => {
     try {
       if (!clientId) return;
@@ -201,7 +234,7 @@ export default function ClientDashboard() {
       setLastWebhookPayload(data || null);
 
       const msgs = extractMessagesFromPayload(data);
-      setPayloadViewMode(msgs ? "messages" : "full"); // auto switch if messages exist
+      setPayloadViewMode(msgs ? "messages" : "full");
 
       setShowWebhookModal(true);
     } catch (err) {
@@ -212,7 +245,7 @@ export default function ClientDashboard() {
     }
   };
 
-  // 🔹 Fetch chart data when mode changes
+  // Chart data
   useEffect(() => {
     if (!clientId) return;
 
@@ -244,7 +277,6 @@ export default function ClientDashboard() {
     fetchChartData();
   }, [mode, clientId]);
 
-  // 🔹 Fetch handover status from backend
   const fetchHandoverStatus = async () => {
     try {
       const res = await fetch(`https://serverowned.onrender.com/api/clients/${clientId}`, {
@@ -337,7 +369,7 @@ export default function ClientDashboard() {
           web: data.filter((c) => c.source === "web").length,
           messenger: data.filter((c) => c.source === "messenger").length,
           instagram: data.filter((c) => c.source === "instagram").length,
-          whatsapp: data.filter((c) => c.source === "whatsapp").length, // ✅ added whatsapp
+          whatsapp: data.filter((c) => c.source === "whatsapp").length,
         };
 
         setConversationStats({
@@ -380,6 +412,12 @@ export default function ClientDashboard() {
     return isNaN(d.getTime()) ? String(iso) : d.toLocaleString();
   };
 
+  const statusBadge = (status) => {
+    if (status === "error") return "bg-red-100 text-red-700 border-red-200";
+    if (status === "warning") return "bg-yellow-100 text-yellow-700 border-yellow-200";
+    return "bg-green-100 text-green-700 border-green-200";
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -402,15 +440,52 @@ export default function ClientDashboard() {
           </div>
         </header>
 
+        {/* ✅ NEW: Warnings / Health */}
+        <Card className="p-4 border-l-4 border-slate-700">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg font-semibold">System Warnings</CardTitle>
+            <div className={`text-xs px-2 py-1 rounded border ${statusBadge(health.status)}`}>
+              {healthLoading ? "checking..." : health.status}
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-3">
+            <p className="text-sm text-slate-600">
+              These are simple checks to warn you if something might affect message delivery or response quality.
+            </p>
+
+            {health.warnings?.length ? (
+              <div className="space-y-2">
+                {health.warnings.map((w, i) => (
+                  <div key={i} className="text-sm rounded-lg border bg-white p-3">
+                    <div className="font-medium text-slate-800">
+                      {w.severity === "error" ? "❌" : "⚠️"} {w.message}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">Code: {w.code}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3">
+                ✅ No warnings right now.
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={fetchClientHealth}>
+                Refresh Warnings
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Connect Facebook Page */}
         <Card className="p-4 border-l-4 border-blue-600">
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Facebook Page Connection</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-gray-600">
-              Connect your Facebook Page to enable Messenger chatbot features and manage messages directly.
-            </p>
+            <p className="text-sm text-gray-600">Connect your Facebook Page to enable Messenger chatbot features and manage messages directly.</p>
 
             {pageName ? (
               <p className="text-sm text-slate-600">
@@ -433,7 +508,7 @@ export default function ClientDashboard() {
               Connect Facebook Page
             </Button>
 
-            {/* ✅ Webhook Subscription (review proof) */}
+            {/* Webhook Subscription */}
             <div className="mt-4 border rounded-xl p-4 bg-slate-50">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -444,10 +519,19 @@ export default function ClientDashboard() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={fetchWebhookStatus}>
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      await fetchWebhookStatus();
+                      await fetchClientHealth();
+                    }}
+                  >
                     Refresh Status
                   </Button>
-                  <Button onClick={enableWebhooks} disabled={!pageId || isSubscribing}>
+                  <Button
+                    onClick={enableWebhooks}
+                    disabled={!pageId || isSubscribing}
+                  >
                     {isSubscribing ? "Enabling..." : "Enable Webhooks"}
                   </Button>
                 </div>
@@ -469,11 +553,7 @@ export default function ClientDashboard() {
 
                   <div className="font-medium mt-2">
                     {(webhookStatus.webhookFields || []).length ? (
-                      showMessagesOnly ? (
-                        webhookStatus.webhookFields.includes("messages") ? "messages" : "—"
-                      ) : (
-                        webhookStatus.webhookFields.join(", ")
-                      )
+                      showMessagesOnly ? (webhookStatus.webhookFields.includes("messages") ? "messages" : "—") : webhookStatus.webhookFields.join(", ")
                     ) : (
                       "—"
                     )}
@@ -538,18 +618,10 @@ export default function ClientDashboard() {
               </p>
 
               <div className="space-y-1 text-sm mt-3">
-                <p>
-                  <span className="font-medium">Web:</span> {conversationStats.bySource?.web ?? 0}
-                </p>
-                <p>
-                  <span className="font-medium">Messenger:</span> {conversationStats.bySource?.messenger ?? 0}
-                </p>
-                <p>
-                  <span className="font-medium">Instagram:</span> {conversationStats.bySource?.instagram ?? 0}
-                </p>
-                <p>
-                  <span className="font-medium">WhatsApp:</span> {conversationStats.bySource?.whatsapp ?? 0}
-                </p>
+                <p><span className="font-medium">Web:</span> {conversationStats.bySource?.web ?? 0}</p>
+                <p><span className="font-medium">Messenger:</span> {conversationStats.bySource?.messenger ?? 0}</p>
+                <p><span className="font-medium">Instagram:</span> {conversationStats.bySource?.instagram ?? 0}</p>
+                <p><span className="font-medium">WhatsApp:</span> {conversationStats.bySource?.whatsapp ?? 0}</p>
               </div>
             </CardContent>
           </Card>
@@ -617,7 +689,6 @@ export default function ClientDashboard() {
         </Card>
 
         <input value={testPsid} onChange={(e) => setTestPsid(e.target.value)} className="border rounded p-2 text-sm w-full" />
-
         <Button onClick={() => sendReviewTest(pageId, testPsid)}>Send test message (Meta Send API)</Button>
 
         {/* Conversations Section */}
@@ -638,7 +709,7 @@ export default function ClientDashboard() {
                 <option value="web">Web</option>
                 <option value="messenger">Messenger</option>
                 <option value="instagram">Instagram</option>
-                <option value="whatsapp">WhatsApp</option> {/* ✅ added */}
+                <option value="whatsapp">WhatsApp</option>
               </select>
 
               <Button className="w-full sm:w-auto" onClick={() => viewConvos(clientId)}>
@@ -681,6 +752,7 @@ export default function ClientDashboard() {
 
                     await fetchHandoverStatus();
                     await fetchStats();
+                    await fetchClientHealth(); // ✅ refresh warnings
                   } catch (err) {
                     console.error("Error updating handover status:", err);
                   }
@@ -710,7 +782,10 @@ export default function ClientDashboard() {
               <Button variant={selectedSource === "web" ? "default" : "outline"} onClick={() => setSelectedSource("web")}>
                 Web
               </Button>
-              <Button variant={selectedSource === "messenger" ? "default" : "outline"} onClick={() => setSelectedSource("messenger")}>
+              <Button
+                variant={selectedSource === "messenger" ? "default" : "outline"}
+                onClick={() => setSelectedSource("messenger")}
+              >
                 Messenger
               </Button>
               <Button variant={selectedSource === "instagram" ? "default" : "outline"} onClick={() => setSelectedSource("instagram")}>
@@ -728,7 +803,6 @@ export default function ClientDashboard() {
                 <div key={idx} className="border rounded-lg p-3 bg-white shadow-sm">
                   <p className="text-red-500 font-semibold mb-1">Conversation #{idx + 1}</p>
 
-                  {/* Your backend might return userId, user, or psid depending on source */}
                   <p className="font-medium">{c.user || c.userId || c.psid || "Unknown user"}</p>
                   <div className="pl-2 space-y-2 mt-2">
                     {c.history?.map((msg, i) => (
@@ -759,7 +833,7 @@ export default function ClientDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* ✅ Last Webhook Payload Modal */}
+      {/* Last Webhook Payload Modal */}
       <Dialog open={showWebhookModal} onOpenChange={setShowWebhookModal}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
