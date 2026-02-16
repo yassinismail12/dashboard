@@ -57,6 +57,14 @@ export default function ClientDashboard() {
   // ✅ NEW: health/warnings state
   const [health, setHealth] = useState({ status: "ok", warnings: [] });
   const [healthLoading, setHealthLoading] = useState(false);
+const [postsLoading, setPostsLoading] = useState(false);
+const [posts, setPosts] = useState([]);
+const [postsError, setPostsError] = useState("");
+
+const [selectedPostId, setSelectedPostId] = useState(null);
+const [commentsLoading, setCommentsLoading] = useState(false);
+const [comments, setComments] = useState([]);
+const [commentsError, setCommentsError] = useState("");
 
   // 🔹 Get user info from /api/me
   useEffect(() => {
@@ -203,6 +211,57 @@ export default function ClientDashboard() {
       setIsSubscribing(false);
     }
   };
+const loadRecentPosts = async () => {
+  if (!pageId) return;
+  try {
+    setPostsError("");
+    setPostsLoading(true);
+
+    const res = await fetch(`https://serverowned.onrender.com/api/engagement/pages/${pageId}/posts`, {
+      credentials: "include",
+    });
+    const json = await res.json();
+
+    if (!res.ok || !json.ok) {
+      setPostsError(JSON.stringify(json.error || json));
+      setPosts([]);
+      return;
+    }
+
+    setPosts(json.data || []);
+  } catch (e) {
+    setPostsError(e.message);
+  } finally {
+    setPostsLoading(false);
+  }
+};
+
+const loadComments = async (postId) => {
+  if (!pageId || !postId) return;
+  try {
+    setCommentsError("");
+    setCommentsLoading(true);
+    setSelectedPostId(postId);
+
+    const res = await fetch(
+      `https://serverowned.onrender.com/api/engagement/posts/${postId}/comments?pageId=${encodeURIComponent(pageId)}`,
+      { credentials: "include" }
+    );
+    const json = await res.json();
+
+    if (!res.ok || !json.ok) {
+      setCommentsError(JSON.stringify(json.error || json));
+      setComments([]);
+      return;
+    }
+
+    setComments(json.data || []);
+  } catch (e) {
+    setCommentsError(e.message);
+  } finally {
+    setCommentsLoading(false);
+  }
+};
 
   const extractMessagesFromPayload = (payload) => {
     if (!payload) return null;
@@ -507,6 +566,101 @@ export default function ClientDashboard() {
             >
               Connect Facebook Page
             </Button>
+{/* ✅ Page Engagement (for pages_read_engagement review) */}
+<Card className="p-4 border-l-4 border-purple-600">
+  <CardHeader>
+    <CardTitle className="text-lg font-semibold">Page Engagement (Posts & Comments)</CardTitle>
+  </CardHeader>
+
+  <CardContent className="space-y-3">
+    <p className="text-sm text-slate-600">
+      This section reads your Page posts and comments to help you manage engagement in one dashboard.
+    </p>
+
+    {!pageId ? (
+      <div className="text-sm text-slate-500">
+        Connect your Page first to load posts and comments.
+      </div>
+    ) : (
+      <>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={loadRecentPosts} disabled={postsLoading}>
+            {postsLoading ? "Loading posts..." : "Load recent posts"}
+          </Button>
+        </div>
+
+        {postsError ? (
+          <div className="text-xs text-red-600 break-words">
+            Failed to load posts: {postsError}
+          </div>
+        ) : null}
+
+        <div className="space-y-2">
+          {(posts || []).map((p) => (
+            <div key={p.id} className="border rounded-lg bg-white p-3">
+              <div className="text-xs text-slate-500">
+                {p.created_time ? new Date(p.created_time).toLocaleString() : "—"}
+              </div>
+
+              <div className="text-sm text-slate-800 mt-1 whitespace-pre-wrap">
+                {p.message || "(No message text)"}
+              </div>
+
+              <div className="mt-2 flex flex-wrap gap-2">
+                {p.permalink_url ? (
+                  <a className="text-xs underline text-slate-600" href={p.permalink_url} target="_blank" rel="noreferrer">
+                    Open on Facebook
+                  </a>
+                ) : null}
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => loadComments(p.id)}
+                  disabled={commentsLoading && selectedPostId === p.id}
+                >
+                  {commentsLoading && selectedPostId === p.id ? "Loading comments..." : "View comments"}
+                </Button>
+              </div>
+
+              {selectedPostId === p.id ? (
+                <div className="mt-3 space-y-2">
+                  {commentsError ? (
+                    <div className="text-xs text-red-600 break-words">
+                      Failed to load comments: {commentsError}
+                    </div>
+                  ) : null}
+
+                  {(comments || []).length ? (
+                    comments.map((c) => (
+                      <div key={c.id} className="text-sm bg-slate-50 border rounded p-2">
+                        <div className="text-xs text-slate-500">
+                          {c.from?.name ? `From: ${c.from.name}` : "From: (hidden)"} •{" "}
+                          {c.created_time ? new Date(c.created_time).toLocaleString() : "—"}
+                        </div>
+                        <div className="mt-1 text-slate-800 whitespace-pre-wrap">{c.message || "(No text)"}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-slate-500">
+                      {commentsLoading ? "Loading..." : "No comments found."}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          ))}
+
+          {!postsLoading && pageId && (!posts || posts.length === 0) ? (
+            <div className="text-sm text-slate-500">
+              No posts loaded yet. Click “Load recent posts”.
+            </div>
+          ) : null}
+        </div>
+      </>
+    )}
+  </CardContent>
+</Card>
 
             {/* Webhook Subscription */}
             <div className="mt-4 border rounded-xl p-4 bg-slate-50">
