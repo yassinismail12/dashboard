@@ -217,9 +217,11 @@ const loadRecentPosts = async () => {
     setPostsError("");
     setPostsLoading(true);
 
-    const res = await fetch(`https://serverowned.onrender.com/api/engagement/pages/${pageId}/posts`, {
-      credentials: "include",
-    });
+    const res = await fetch(
+  `https://serverowned.onrender.com/api/engagement/pages/${pageId}/posts?clientId=${encodeURIComponent(clientId)}`,
+  { credentials: "include" }
+);
+
     const json = await res.json();
 
     if (!res.ok || !json.ok) {
@@ -242,11 +244,11 @@ const loadComments = async (postId) => {
     setCommentsError("");
     setCommentsLoading(true);
     setSelectedPostId(postId);
+const res = await fetch(
+  `https://serverowned.onrender.com/api/engagement/posts/${postId}/comments?pageId=${encodeURIComponent(pageId)}&clientId=${encodeURIComponent(clientId)}`,
+  { credentials: "include" }
+);
 
-    const res = await fetch(
-      `https://serverowned.onrender.com/api/engagement/posts/${postId}/comments?pageId=${encodeURIComponent(pageId)}`,
-      { credentials: "include" }
-    );
     const json = await res.json();
 
     if (!res.ok || !json.ok) {
