@@ -437,30 +437,42 @@ export default function ClientDashboard() {
   useEffect(() => {
     if (!clientId) return;
 
-    const fetchChartData = async () => {
-      try {
-        const res = await fetch(`https://serverowned.onrender.com/api/stats/${clientId}?mode=${mode}`, {
-          credentials: "include",
-        });
-        const data = await res.json();
+  const fetchChartData = async () => {
+  try {
+    const res = await fetch(`https://serverowned.onrender.com/api/stats/${clientId}?mode=${mode}`, {
+      credentials: "include",
+    });
 
-        const results = Array.isArray(data) ? data : data.chartResults || [];
-        let normalized = [];
+    const contentType = res.headers.get("content-type") || "";
+    const raw = await res.text();
 
-        if (mode === "daily") {
-          normalized = results.map((d) => ({ label: `${d._id}:00`, messages: d.count }));
-        } else if (mode === "weekly") {
-          const daysMap = { 1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat" };
-          normalized = results.map((d) => ({ label: daysMap[d._id] || d._id, messages: d.count }));
-        } else if (mode === "monthly") {
-          normalized = results.map((d) => ({ label: d._id.toString(), messages: d.count }));
-        }
+    if (!res.ok) {
+      console.error("Chart API failed:", res.status, raw.slice(0, 300));
+      return;
+    }
 
-        setChartData(normalized);
-      } catch (err) {
-        console.error("Error fetching chart data:", err);
-      }
-    };
+    if (!contentType.includes("application/json")) {
+      console.error("Chart API returned non-JSON:", contentType, raw.slice(0, 300));
+      return;
+    }
+
+    const data = JSON.parse(raw);
+
+    const results = Array.isArray(data) ? data : data.chartResults || [];
+    let normalized = [];
+
+    if (mode === "daily") normalized = results.map((d) => ({ label: `${d._id}:00`, messages: d.count }));
+    else if (mode === "weekly") {
+      const daysMap = { 1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat" };
+      normalized = results.map((d) => ({ label: daysMap[d._id] || d._id, messages: d.count }));
+    } else if (mode === "monthly") normalized = results.map((d) => ({ label: d._id.toString(), messages: d.count }));
+
+    setChartData(normalized);
+  } catch (err) {
+    console.error("Error fetching chart data:", err);
+  }
+};
+
 
     fetchChartData();
   }, [mode, clientId]);
@@ -477,19 +489,33 @@ export default function ClientDashboard() {
     }
   };
 
-  async function fetchStats() {
-    try {
-      const res = await fetch(`https://serverowned.onrender.com/api/stats/${clientId}`, {
-        credentials: "include",
-      });
-      const data = await res.json();
-      setStats(data);
-      setHumanRequests(data.totalHumanRequests || 0);
-      setTourRequests(data.totalTourRequests || 0);
-    } catch (err) {
-      console.error("Error fetching stats:", err);
+ async function fetchStats() {
+  try {
+    const res = await fetch(`https://serverowned.onrender.com/api/stats/${clientId}`, {
+      credentials: "include",
+    });
+
+    const contentType = res.headers.get("content-type") || "";
+    const raw = await res.text();
+
+    if (!res.ok) {
+      console.error("Stats API failed:", res.status, raw.slice(0, 300));
+      return;
     }
+
+    if (!contentType.includes("application/json")) {
+      console.error("Stats API returned non-JSON:", contentType, raw.slice(0, 300));
+      return;
+    }
+
+    const data = JSON.parse(raw);
+    setStats(data);
+    setHumanRequests(data.totalHumanRequests || 0);
+    setTourRequests(data.totalTourRequests || 0);
+  } catch (err) {
+    console.error("Error fetching stats:", err);
   }
+}
 
   const handleLogout = async () => {
     try {
