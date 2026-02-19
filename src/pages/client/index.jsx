@@ -26,6 +26,19 @@ export default function ClientDashboard() {
     activeToday: 0,
     bySource: { web: 0, messenger: 0, instagram: 0, whatsapp: 0 },
   });
+  const [ig, setIg] = useState({
+  igId: "",
+  igUsername: "",
+  igName: "",
+  igProfilePicUrl: "",
+});
+
+const [igProfile, setIgProfile] = useState(null);
+const [igMedia, setIgMedia] = useState([]);
+const [igLoadingProfile, setIgLoadingProfile] = useState(false);
+const [igLoadingMedia, setIgLoadingMedia] = useState(false);
+const [igError, setIgError] = useState("");
+
 
   const [showConvoModal, setShowConvoModal] = useState(false);
   const [currentConvos, setCurrentConvos] = useState([]);
@@ -136,18 +149,74 @@ const [commentsError, setCommentsError] = useState("");
   };
 
   // ✅ Fetch client object to show PAGE_NAME if connected
-  const fetchClientPageConnection = async () => {
-    try {
-      const res = await fetch(`https://serverowned.onrender.com/api/clients/${clientId}`, {
-        credentials: "include",
-      });
-      const data = await res.json();
-      setPageName(data?.PAGE_NAME || "");
-      setPageId(data?.pageId || "");
-    } catch (err) {
-      console.error("Error fetching client page connection:", err);
+const fetchClientPageConnection = async () => {
+  try {
+    const res = await fetch(`https://serverowned.onrender.com/api/clients/${clientId}`, {
+      credentials: "include",
+    });
+    const data = await res.json();
+
+    setPageName(data?.PAGE_NAME || "");
+    setPageId(data?.pageId || "");
+
+    setIg({
+      igId: data?.igId || "",
+      igUsername: data?.igUsername || "",
+      igName: data?.igName || "",
+      igProfilePicUrl: data?.igProfilePicUrl || "",
+    });
+  } catch (err) {
+    console.error("Error fetching client page connection:", err);
+  }
+};
+const fetchIgProfile = async () => {
+  try {
+    setIgError("");
+    setIgLoadingProfile(true);
+
+    const res = await fetch(
+      `https://serverowned.onrender.com/instagram/review/profile?clientId=${encodeURIComponent(clientId)}`,
+      { credentials: "include" }
+    );
+    const json = await res.json();
+
+    if (!res.ok || !json.ok) {
+      setIgError(JSON.stringify(json.error || json));
+      setIgProfile(null);
+      return;
     }
-  };
+    setIgProfile(json.data);
+  } catch (e) {
+    setIgError(e.message);
+  } finally {
+    setIgLoadingProfile(false);
+  }
+};
+
+const fetchIgMedia = async () => {
+  try {
+    setIgError("");
+    setIgLoadingMedia(true);
+
+    const res = await fetch(
+      `https://serverowned.onrender.com/instagram/review/media?clientId=${encodeURIComponent(clientId)}`,
+      { credentials: "include" }
+    );
+    const json = await res.json();
+
+    if (!res.ok || !json.ok) {
+      setIgError(JSON.stringify(json.error || json));
+      setIgMedia([]);
+      return;
+    }
+    setIgMedia(json.data || []);
+  } catch (e) {
+    setIgError(e.message);
+  } finally {
+    setIgLoadingMedia(false);
+  }
+};
+
 
   // ✅ Fetch webhook status
   const fetchWebhookStatus = async () => {
@@ -731,6 +800,91 @@ const res = await fetch(
             </div>
           </CardContent>
         </Card>
+<Card className="p-4 border-l-4 border-pink-600">
+  <CardHeader>
+    <CardTitle className="text-lg font-semibold">Instagram Connection (Review Proof)</CardTitle>
+  </CardHeader>
+
+  <CardContent className="space-y-3">
+    <p className="text-sm text-slate-600">
+      This section proves instagram_basic by showing the connected account, live profile fields, and a media list.
+    </p>
+
+    {!ig.igId ? (
+      <div className="text-sm text-slate-500">
+        No Instagram professional account detected on this connected Page yet.
+        Make sure the Page is connected to an Instagram Professional account.
+      </div>
+    ) : (
+      <div className="flex items-center gap-3 border rounded-lg bg-white p-3">
+        {ig.igProfilePicUrl ? (
+          <img
+            src={ig.igProfilePicUrl}
+            alt="IG profile"
+            className="w-12 h-12 rounded-full border"
+          />
+        ) : null}
+
+        <div className="flex-1">
+          <div className="text-sm font-medium text-slate-900">
+            Instagram: @{ig.igUsername || "unknown"}
+          </div>
+          <div className="text-xs text-slate-500">
+            IG ID: {ig.igId} {ig.igName ? `• Name: ${ig.igName}` : ""}
+          </div>
+        </div>
+      </div>
+    )}
+
+    <div className="flex gap-2 flex-wrap">
+      <Button variant="outline" onClick={fetchIgProfile} disabled={!ig.igId || igLoadingProfile}>
+        {igLoadingProfile ? "Fetching profile..." : "Fetch IG Profile (Live)"}
+      </Button>
+
+      <Button variant="outline" onClick={fetchIgMedia} disabled={!ig.igId || igLoadingMedia}>
+        {igLoadingMedia ? "Loading media..." : "Load Media List (Live)"}
+      </Button>
+    </div>
+
+    {igError ? (
+      <div className="text-xs text-red-600 break-words">
+        IG error: {igError}
+      </div>
+    ) : null}
+
+    {/* Live profile fields */}
+    {igProfile ? (
+      <div className="border rounded-lg bg-slate-50 p-3">
+        <div className="text-sm font-medium text-slate-800">Live Profile Fields</div>
+        <div className="text-xs text-slate-600 mt-2 space-y-1">
+          <div><b>username:</b> {igProfile.username}</div>
+          <div><b>name:</b> {igProfile.name}</div>
+          <div><b>biography:</b> {igProfile.biography}</div>
+          <div><b>followers_count:</b> {igProfile.followers_count}</div>
+          <div><b>media_count:</b> {igProfile.media_count}</div>
+        </div>
+      </div>
+    ) : null}
+
+    {/* Media list */}
+    {igMedia?.length ? (
+      <div className="space-y-2">
+        <div className="text-sm font-medium text-slate-800">Media List (shown in-app)</div>
+        {igMedia.slice(0, 6).map((m) => (
+          <div key={m.id} className="border rounded-lg bg-white p-3">
+            <div className="text-xs text-slate-500">Media ID: {m.id} • {m.media_type}</div>
+            {m.media_url ? (
+              <img src={m.media_url} alt="media" className="mt-2 max-h-64 rounded border" />
+            ) : null}
+            <div className="text-sm text-slate-800 mt-2 whitespace-pre-wrap">
+              {m.caption ? m.caption.slice(0, 160) : "(No caption)"}
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : null}
+  </CardContent>
+</Card>
 
         {/* Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
