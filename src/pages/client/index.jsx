@@ -511,7 +511,7 @@ export default function ClientDashboard() {
     const data = JSON.parse(raw);
     setStats(data);
     setHumanRequests(data.totalHumanRequests || 0);
-    setTourRequests(data.totalTourRequests || 0);
+    setTourRequests(data.totalOrderRequests || 0);
   } catch (err) {
     console.error("Error fetching stats:", err);
   }
