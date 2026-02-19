@@ -26,19 +26,25 @@ export default function ClientDashboard() {
     activeToday: 0,
     bySource: { web: 0, messenger: 0, instagram: 0, whatsapp: 0 },
   });
+
   const [ig, setIg] = useState({
-  igId: "",
-  igUsername: "",
-  igName: "",
-  igProfilePicUrl: "",
-});
+    igId: "",
+    igUsername: "",
+    igName: "",
+    igProfilePicUrl: "",
+  });
 
-const [igProfile, setIgProfile] = useState(null);
-const [igMedia, setIgMedia] = useState([]);
-const [igLoadingProfile, setIgLoadingProfile] = useState(false);
-const [igLoadingMedia, setIgLoadingMedia] = useState(false);
-const [igError, setIgError] = useState("");
+  const [igProfile, setIgProfile] = useState(null);
+  const [igMedia, setIgMedia] = useState([]);
+  const [igLoadingProfile, setIgLoadingProfile] = useState(false);
+  const [igLoadingMedia, setIgLoadingMedia] = useState(false);
+  const [igError, setIgError] = useState("");
 
+  // ✅ IG DM (instagram_manage_messages proof)
+  const [igDmRecipientId, setIgDmRecipientId] = useState(""); // optional (backend can use lastIgSenderId)
+  const [igDmText, setIgDmText] = useState("✅ Test message from dashboard");
+  const [igSendingDm, setIgSendingDm] = useState(false);
+  const [igDmResult, setIgDmResult] = useState(null);
 
   const [showConvoModal, setShowConvoModal] = useState(false);
   const [currentConvos, setCurrentConvos] = useState([]);
@@ -70,14 +76,15 @@ const [igError, setIgError] = useState("");
   // ✅ NEW: health/warnings state
   const [health, setHealth] = useState({ status: "ok", warnings: [] });
   const [healthLoading, setHealthLoading] = useState(false);
-const [postsLoading, setPostsLoading] = useState(false);
-const [posts, setPosts] = useState([]);
-const [postsError, setPostsError] = useState("");
 
-const [selectedPostId, setSelectedPostId] = useState(null);
-const [commentsLoading, setCommentsLoading] = useState(false);
-const [comments, setComments] = useState([]);
-const [commentsError, setCommentsError] = useState("");
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [posts, setPosts] = useState([]);
+  const [postsError, setPostsError] = useState("");
+
+  const [selectedPostId, setSelectedPostId] = useState(null);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [commentsError, setCommentsError] = useState("");
 
   // 🔹 Get user info from /api/me
   useEffect(() => {
@@ -134,14 +141,22 @@ const [commentsError, setCommentsError] = useState("");
       } else {
         setHealth({
           status: "warning",
-          warnings: [{ code: "HEALTH_FETCH_FAILED", severity: "warn", message: data?.error || "Could not load warnings." }],
+          warnings: [
+            {
+              code: "HEALTH_FETCH_FAILED",
+              severity: "warn",
+              message: data?.error || "Could not load warnings.",
+            },
+          ],
         });
       }
     } catch (err) {
       console.error("Error fetching client health:", err);
       setHealth({
         status: "warning",
-        warnings: [{ code: "HEALTH_NETWORK", severity: "warn", message: "Could not load warnings (network/server error)." }],
+        warnings: [
+          { code: "HEALTH_NETWORK", severity: "warn", message: "Could not load warnings (network/server error)." },
+        ],
       });
     } finally {
       setHealthLoading(false);
@@ -149,74 +164,113 @@ const [commentsError, setCommentsError] = useState("");
   };
 
   // ✅ Fetch client object to show PAGE_NAME if connected
-const fetchClientPageConnection = async () => {
-  try {
-    const res = await fetch(`https://serverowned.onrender.com/api/clients/${clientId}`, {
-      credentials: "include",
-    });
-    const data = await res.json();
+  const fetchClientPageConnection = async () => {
+    try {
+      const res = await fetch(`https://serverowned.onrender.com/api/clients/${clientId}`, {
+        credentials: "include",
+      });
+      const data = await res.json();
 
-    setPageName(data?.PAGE_NAME || "");
-    setPageId(data?.pageId || "");
+      setPageName(data?.PAGE_NAME || "");
+      setPageId(data?.pageId || "");
 
-    setIg({
-      igId: data?.igId || "",
-      igUsername: data?.igUsername || "",
-      igName: data?.igName || "",
-      igProfilePicUrl: data?.igProfilePicUrl || "",
-    });
-  } catch (err) {
-    console.error("Error fetching client page connection:", err);
-  }
-};
-const fetchIgProfile = async () => {
-  try {
-    setIgError("");
-    setIgLoadingProfile(true);
-
-    const res = await fetch(
-      `https://serverowned.onrender.com/instagram/review/profile?clientId=${encodeURIComponent(clientId)}`,
-      { credentials: "include" }
-    );
-    const json = await res.json();
-
-    if (!res.ok || !json.ok) {
-      setIgError(JSON.stringify(json.error || json));
-      setIgProfile(null);
-      return;
+      setIg({
+        igId: data?.igId || data?.igBusinessId || "",
+        igUsername: data?.igUsername || "",
+        igName: data?.igName || "",
+        igProfilePicUrl: data?.igProfilePicUrl || "",
+      });
+    } catch (err) {
+      console.error("Error fetching client page connection:", err);
     }
-    setIgProfile(json.data);
-  } catch (e) {
-    setIgError(e.message);
-  } finally {
-    setIgLoadingProfile(false);
-  }
-};
+  };
 
-const fetchIgMedia = async () => {
-  try {
-    setIgError("");
-    setIgLoadingMedia(true);
+  const fetchIgProfile = async () => {
+    try {
+      setIgError("");
+      setIgLoadingProfile(true);
 
-    const res = await fetch(
-      `https://serverowned.onrender.com/instagram/review/media?clientId=${encodeURIComponent(clientId)}`,
-      { credentials: "include" }
-    );
-    const json = await res.json();
+      const res = await fetch(
+        `https://serverowned.onrender.com/instagram/review/profile?clientId=${encodeURIComponent(clientId)}`,
+        { credentials: "include" }
+      );
+      const json = await res.json();
 
-    if (!res.ok || !json.ok) {
-      setIgError(JSON.stringify(json.error || json));
-      setIgMedia([]);
-      return;
+      if (!res.ok || !json.ok) {
+        setIgError(JSON.stringify(json.error || json));
+        setIgProfile(null);
+        return;
+      }
+
+      setIgProfile(json.data);
+
+      // ✅ important: backend stores igUsername / pic in client doc
+      // refresh header fields so UI reflects it
+      await fetchClientPageConnection();
+    } catch (e) {
+      setIgError(e.message);
+    } finally {
+      setIgLoadingProfile(false);
     }
-    setIgMedia(json.data || []);
-  } catch (e) {
-    setIgError(e.message);
-  } finally {
-    setIgLoadingMedia(false);
-  }
-};
+  };
 
+  const fetchIgMedia = async () => {
+    try {
+      setIgError("");
+      setIgLoadingMedia(true);
+
+      const res = await fetch(
+        `https://serverowned.onrender.com/instagram/review/media?clientId=${encodeURIComponent(clientId)}`,
+        { credentials: "include" }
+      );
+      const json = await res.json();
+
+      if (!res.ok || !json.ok) {
+        setIgError(JSON.stringify(json.error || json));
+        setIgMedia([]);
+        return;
+      }
+      setIgMedia(json.data || []);
+    } catch (e) {
+      setIgError(e.message);
+    } finally {
+      setIgLoadingMedia(false);
+    }
+  };
+
+  // ✅ IG DM sender (instagram_manage_messages proof)
+  const sendIgDm = async () => {
+    try {
+      if (!clientId) return;
+      setIgError("");
+      setIgDmResult(null);
+      setIgSendingDm(true);
+
+      const res = await fetch(`https://serverowned.onrender.com/instagram/review/send-dm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          clientId,
+          recipientId: igDmRecipientId.trim() || undefined,
+          text: igDmText,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.ok) {
+        setIgError(JSON.stringify(json.error || json));
+        return;
+      }
+
+      setIgDmResult(json);
+    } catch (e) {
+      setIgError(e.message);
+    } finally {
+      setIgSendingDm(false);
+    }
+  };
 
   // ✅ Fetch webhook status
   const fetchWebhookStatus = async () => {
@@ -280,59 +334,63 @@ const fetchIgMedia = async () => {
       setIsSubscribing(false);
     }
   };
-const loadRecentPosts = async () => {
-  if (!pageId) return;
-  try {
-    setPostsError("");
-    setPostsLoading(true);
 
-    const res = await fetch(
-  `https://serverowned.onrender.com/api/engagement/pages/${pageId}/posts?clientId=${encodeURIComponent(clientId)}`,
-  { credentials: "include" }
-);
+  const loadRecentPosts = async () => {
+    if (!pageId) return;
+    try {
+      setPostsError("");
+      setPostsLoading(true);
 
-    const json = await res.json();
+      const res = await fetch(
+        `https://serverowned.onrender.com/api/engagement/pages/${pageId}/posts?clientId=${encodeURIComponent(clientId)}`,
+        { credentials: "include" }
+      );
 
-    if (!res.ok || !json.ok) {
-      setPostsError(JSON.stringify(json.error || json));
-      setPosts([]);
-      return;
+      const json = await res.json();
+
+      if (!res.ok || !json.ok) {
+        setPostsError(JSON.stringify(json.error || json));
+        setPosts([]);
+        return;
+      }
+
+      setPosts(json.data || []);
+    } catch (e) {
+      setPostsError(e.message);
+    } finally {
+      setPostsLoading(false);
     }
+  };
 
-    setPosts(json.data || []);
-  } catch (e) {
-    setPostsError(e.message);
-  } finally {
-    setPostsLoading(false);
-  }
-};
+  const loadComments = async (postId) => {
+    if (!pageId || !postId) return;
+    try {
+      setCommentsError("");
+      setCommentsLoading(true);
+      setSelectedPostId(postId);
 
-const loadComments = async (postId) => {
-  if (!pageId || !postId) return;
-  try {
-    setCommentsError("");
-    setCommentsLoading(true);
-    setSelectedPostId(postId);
-const res = await fetch(
-  `https://serverowned.onrender.com/api/engagement/posts/${postId}/comments?pageId=${encodeURIComponent(pageId)}&clientId=${encodeURIComponent(clientId)}`,
-  { credentials: "include" }
-);
+      const res = await fetch(
+        `https://serverowned.onrender.com/api/engagement/posts/${postId}/comments?pageId=${encodeURIComponent(
+          pageId
+        )}&clientId=${encodeURIComponent(clientId)}`,
+        { credentials: "include" }
+      );
 
-    const json = await res.json();
+      const json = await res.json();
 
-    if (!res.ok || !json.ok) {
-      setCommentsError(JSON.stringify(json.error || json));
-      setComments([]);
-      return;
+      if (!res.ok || !json.ok) {
+        setCommentsError(JSON.stringify(json.error || json));
+        setComments([]);
+        return;
+      }
+
+      setComments(json.data || []);
+    } catch (e) {
+      setCommentsError(e.message);
+    } finally {
+      setCommentsLoading(false);
     }
-
-    setComments(json.data || []);
-  } catch (e) {
-    setCommentsError(e.message);
-  } finally {
-    setCommentsLoading(false);
-  }
-};
+  };
 
   const extractMessagesFromPayload = (payload) => {
     if (!payload) return null;
@@ -615,7 +673,9 @@ const res = await fetch(
             <CardTitle className="text-lg font-semibold">Facebook Page Connection</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-gray-600">Connect your Facebook Page to enable Messenger chatbot features and manage messages directly.</p>
+            <p className="text-sm text-gray-600">
+              Connect your Facebook Page to enable Messenger chatbot features and manage messages directly.
+            </p>
 
             {pageName ? (
               <p className="text-sm text-slate-600">
@@ -631,107 +691,111 @@ const res = await fetch(
 
             <Button
               onClick={() => {
-                window.location.href = `https://serverowned.onrender.com/auth/facebook?clientId=${encodeURIComponent(clientId)}`;
+                window.location.href = `https://serverowned.onrender.com/auth/facebook?clientId=${encodeURIComponent(
+                  clientId
+                )}`;
               }}
               className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg"
             >
               Connect Facebook Page
             </Button>
-{/* ✅ Page Engagement (for pages_read_engagement review) */}
-<Card className="p-4 border-l-4 border-purple-600">
-  <CardHeader>
-    <CardTitle className="text-lg font-semibold">Page Engagement (Posts & Comments)</CardTitle>
-  </CardHeader>
 
-  <CardContent className="space-y-3">
-    <p className="text-sm text-slate-600">
-      This section reads your Page posts and comments to help you manage engagement in one dashboard.
-    </p>
+            {/* ✅ Page Engagement (for pages_read_engagement review) */}
+            <Card className="p-4 border-l-4 border-purple-600">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">Page Engagement (Posts & Comments)</CardTitle>
+              </CardHeader>
 
-    {!pageId ? (
-      <div className="text-sm text-slate-500">
-        Connect your Page first to load posts and comments.
-      </div>
-    ) : (
-      <>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={loadRecentPosts} disabled={postsLoading}>
-            {postsLoading ? "Loading posts..." : "Load recent posts"}
-          </Button>
-        </div>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-slate-600">
+                  This section reads your Page posts and comments to help you manage engagement in one dashboard.
+                </p>
 
-        {postsError ? (
-          <div className="text-xs text-red-600 break-words">
-            Failed to load posts: {postsError}
-          </div>
-        ) : null}
-
-        <div className="space-y-2">
-          {(posts || []).map((p) => (
-            <div key={p.id} className="border rounded-lg bg-white p-3">
-              <div className="text-xs text-slate-500">
-                {p.created_time ? new Date(p.created_time).toLocaleString() : "—"}
-              </div>
-
-              <div className="text-sm text-slate-800 mt-1 whitespace-pre-wrap">
-                {p.message || "(No message text)"}
-              </div>
-
-              <div className="mt-2 flex flex-wrap gap-2">
-                {p.permalink_url ? (
-                  <a className="text-xs underline text-slate-600" href={p.permalink_url} target="_blank" rel="noreferrer">
-                    Open on Facebook
-                  </a>
-                ) : null}
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => loadComments(p.id)}
-                  disabled={commentsLoading && selectedPostId === p.id}
-                >
-                  {commentsLoading && selectedPostId === p.id ? "Loading comments..." : "View comments"}
-                </Button>
-              </div>
-
-              {selectedPostId === p.id ? (
-                <div className="mt-3 space-y-2">
-                  {commentsError ? (
-                    <div className="text-xs text-red-600 break-words">
-                      Failed to load comments: {commentsError}
+                {!pageId ? (
+                  <div className="text-sm text-slate-500">Connect your Page first to load posts and comments.</div>
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={loadRecentPosts} disabled={postsLoading}>
+                        {postsLoading ? "Loading posts..." : "Load recent posts"}
+                      </Button>
                     </div>
-                  ) : null}
 
-                  {(comments || []).length ? (
-                    comments.map((c) => (
-                      <div key={c.id} className="text-sm bg-slate-50 border rounded p-2">
-                        <div className="text-xs text-slate-500">
-                          {c.from?.name ? `From: ${c.from.name}` : "From: (hidden)"} •{" "}
-                          {c.created_time ? new Date(c.created_time).toLocaleString() : "—"}
+                    {postsError ? (
+                      <div className="text-xs text-red-600 break-words">Failed to load posts: {postsError}</div>
+                    ) : null}
+
+                    <div className="space-y-2">
+                      {(posts || []).map((p) => (
+                        <div key={p.id} className="border rounded-lg bg-white p-3">
+                          <div className="text-xs text-slate-500">
+                            {p.created_time ? new Date(p.created_time).toLocaleString() : "—"}
+                          </div>
+
+                          <div className="text-sm text-slate-800 mt-1 whitespace-pre-wrap">
+                            {p.message || "(No message text)"}
+                          </div>
+
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {p.permalink_url ? (
+                              <a
+                                className="text-xs underline text-slate-600"
+                                href={p.permalink_url}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Open on Facebook
+                              </a>
+                            ) : null}
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => loadComments(p.id)}
+                              disabled={commentsLoading && selectedPostId === p.id}
+                            >
+                              {commentsLoading && selectedPostId === p.id ? "Loading comments..." : "View comments"}
+                            </Button>
+                          </div>
+
+                          {selectedPostId === p.id ? (
+                            <div className="mt-3 space-y-2">
+                              {commentsError ? (
+                                <div className="text-xs text-red-600 break-words">
+                                  Failed to load comments: {commentsError}
+                                </div>
+                              ) : null}
+
+                              {(comments || []).length ? (
+                                comments.map((c) => (
+                                  <div key={c.id} className="text-sm bg-slate-50 border rounded p-2">
+                                    <div className="text-xs text-slate-500">
+                                      {c.from?.name ? `From: ${c.from.name}` : "From: (hidden)"} •{" "}
+                                      {c.created_time ? new Date(c.created_time).toLocaleString() : "—"}
+                                    </div>
+                                    <div className="mt-1 text-slate-800 whitespace-pre-wrap">
+                                      {c.message || "(No text)"}
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-sm text-slate-500">
+                                  {commentsLoading ? "Loading..." : "No comments found."}
+                                </div>
+                              )}
+                            </div>
+                          ) : null}
                         </div>
-                        <div className="mt-1 text-slate-800 whitespace-pre-wrap">{c.message || "(No text)"}</div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-slate-500">
-                      {commentsLoading ? "Loading..." : "No comments found."}
-                    </div>
-                  )}
-                </div>
-              ) : null}
-            </div>
-          ))}
+                      ))}
 
-          {!postsLoading && pageId && (!posts || posts.length === 0) ? (
-            <div className="text-sm text-slate-500">
-              No posts loaded yet. Click “Load recent posts”.
-            </div>
-          ) : null}
-        </div>
-      </>
-    )}
-  </CardContent>
-</Card>
+                      {!postsLoading && pageId && (!posts || posts.length === 0) ? (
+                        <div className="text-sm text-slate-500">No posts loaded yet. Click “Load recent posts”.</div>
+                      ) : null}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Webhook Subscription */}
             <div className="mt-4 border rounded-xl p-4 bg-slate-50">
@@ -753,10 +817,7 @@ const res = await fetch(
                   >
                     Refresh Status
                   </Button>
-                  <Button
-                    onClick={enableWebhooks}
-                    disabled={!pageId || isSubscribing}
-                  >
+                  <Button onClick={enableWebhooks} disabled={!pageId || isSubscribing}>
                     {isSubscribing ? "Enabling..." : "Enable Webhooks"}
                   </Button>
                 </div>
@@ -790,7 +851,8 @@ const res = await fetch(
                     </Button>
 
                     <div className="text-xs text-slate-600">
-                      Test tip: add a <b>comment</b> on your Page post, then click <b>Refresh Status</b>. (Requires <b>feed</b>)
+                      Test tip: add a <b>comment</b> on your Page post, then click <b>Refresh Status</b>. (Requires{" "}
+                      <b>feed</b>)
                     </div>
                   </div>
 
@@ -800,91 +862,148 @@ const res = await fetch(
             </div>
           </CardContent>
         </Card>
-<Card className="p-4 border-l-4 border-pink-600">
-  <CardHeader>
-    <CardTitle className="text-lg font-semibold">Instagram Connection (Review Proof)</CardTitle>
-  </CardHeader>
 
-  <CardContent className="space-y-3">
-    <p className="text-sm text-slate-600">
-      This section proves instagram_basic by showing the connected account, live profile fields, and a media list.
-    </p>
+        {/* ✅ Instagram Proof Card (instagram_basic + instagram_manage_messages) */}
+        <Card className="p-4 border-l-4 border-pink-600">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Instagram Connection (Review Proof)</CardTitle>
+          </CardHeader>
 
-    {!ig.igId ? (
-      <div className="text-sm text-slate-500">
-        No Instagram professional account detected on this connected Page yet.
-        Make sure the Page is connected to an Instagram Professional account.
-      </div>
-    ) : (
-      <div className="flex items-center gap-3 border rounded-lg bg-white p-3">
-        {ig.igProfilePicUrl ? (
-          <img
-            src={ig.igProfilePicUrl}
-            alt="IG profile"
-            className="w-12 h-12 rounded-full border"
-          />
-        ) : null}
+          <CardContent className="space-y-3">
+            <p className="text-sm text-slate-600">
+              This section proves <b>instagram_basic</b> by showing the connected account, live profile fields, and a media list.
+              It also proves <b>instagram_manage_messages</b> by sending a DM from inside this dashboard.
+            </p>
 
-        <div className="flex-1">
-          <div className="text-sm font-medium text-slate-900">
-            Instagram: @{ig.igUsername || "unknown"}
-          </div>
-          <div className="text-xs text-slate-500">
-            IG ID: {ig.igId} {ig.igName ? `• Name: ${ig.igName}` : ""}
-          </div>
-        </div>
-      </div>
-    )}
+            {ig.igId || ig.igUsername || ig.igProfilePicUrl ? (
+              <div className="flex items-center gap-3 border rounded-lg bg-white p-3">
+                {ig.igProfilePicUrl ? (
+                  <img src={ig.igProfilePicUrl} alt="IG profile" className="w-12 h-12 rounded-full border" />
+                ) : null}
 
-    <div className="flex gap-2 flex-wrap">
-      <Button variant="outline" onClick={fetchIgProfile} disabled={!ig.igId || igLoadingProfile}>
-        {igLoadingProfile ? "Fetching profile..." : "Fetch IG Profile (Live)"}
-      </Button>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-slate-900">
+                    Instagram: @{ig.igUsername || "unknown"}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    IG ID: {ig.igId || "—"} {ig.igName ? `• Name: ${ig.igName}` : ""}
+                  </div>
+                </div>
 
-      <Button variant="outline" onClick={fetchIgMedia} disabled={!ig.igId || igLoadingMedia}>
-        {igLoadingMedia ? "Loading media..." : "Load Media List (Live)"}
-      </Button>
-    </div>
+                <Button variant="outline" onClick={fetchClientPageConnection}>
+                  Refresh
+                </Button>
+              </div>
+            ) : (
+              <div className="text-sm text-slate-500">
+                No Instagram professional account detected on this Page yet.
+                You can still try “Fetch IG Profile” — if your backend has igId stored (igBusinessId/igId).
+              </div>
+            )}
 
-    {igError ? (
-      <div className="text-xs text-red-600 break-words">
-        IG error: {igError}
-      </div>
-    ) : null}
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" onClick={fetchIgProfile} disabled={!clientId || igLoadingProfile}>
+                {igLoadingProfile ? "Fetching profile..." : "Fetch IG Profile (Live)"}
+              </Button>
 
-    {/* Live profile fields */}
-    {igProfile ? (
-      <div className="border rounded-lg bg-slate-50 p-3">
-        <div className="text-sm font-medium text-slate-800">Live Profile Fields</div>
-        <div className="text-xs text-slate-600 mt-2 space-y-1">
-          <div><b>username:</b> {igProfile.username}</div>
-          <div><b>name:</b> {igProfile.name}</div>
-          <div><b>biography:</b> {igProfile.biography}</div>
-          <div><b>followers_count:</b> {igProfile.followers_count}</div>
-          <div><b>media_count:</b> {igProfile.media_count}</div>
-        </div>
-      </div>
-    ) : null}
-
-    {/* Media list */}
-    {igMedia?.length ? (
-      <div className="space-y-2">
-        <div className="text-sm font-medium text-slate-800">Media List (shown in-app)</div>
-        {igMedia.slice(0, 6).map((m) => (
-          <div key={m.id} className="border rounded-lg bg-white p-3">
-            <div className="text-xs text-slate-500">Media ID: {m.id} • {m.media_type}</div>
-            {m.media_url ? (
-              <img src={m.media_url} alt="media" className="mt-2 max-h-64 rounded border" />
-            ) : null}
-            <div className="text-sm text-slate-800 mt-2 whitespace-pre-wrap">
-              {m.caption ? m.caption.slice(0, 160) : "(No caption)"}
+              <Button variant="outline" onClick={fetchIgMedia} disabled={!clientId || igLoadingMedia}>
+                {igLoadingMedia ? "Loading media..." : "Load Media List (Live)"}
+              </Button>
             </div>
-          </div>
-        ))}
-      </div>
-    ) : null}
-  </CardContent>
-</Card>
+
+            {igError ? <div className="text-xs text-red-600 break-words">IG error: {igError}</div> : null}
+
+            {/* Live profile fields */}
+            {igProfile ? (
+              <div className="border rounded-lg bg-slate-50 p-3">
+                <div className="text-sm font-medium text-slate-800">Live Profile Fields</div>
+                <div className="text-xs text-slate-600 mt-2 space-y-1">
+                  <div>
+                    <b>username:</b> {igProfile.username}
+                  </div>
+                  <div>
+                    <b>name:</b> {igProfile.name}
+                  </div>
+                  <div>
+                    <b>biography:</b> {igProfile.biography}
+                  </div>
+                  <div>
+                    <b>followers_count:</b> {igProfile.followers_count}
+                  </div>
+                  <div>
+                    <b>media_count:</b> {igProfile.media_count}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Media list */}
+            {igMedia?.length ? (
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-slate-800">Media List (shown in-app)</div>
+                {igMedia.slice(0, 6).map((m) => (
+                  <div key={m.id} className="border rounded-lg bg-white p-3">
+                    <div className="text-xs text-slate-500">
+                      Media ID: {m.id} • {m.media_type}
+                    </div>
+                    {m.media_url ? (
+                      <img src={m.media_url} alt="media" className="mt-2 max-h-64 rounded border" />
+                    ) : null}
+                    <div className="text-sm text-slate-800 mt-2 whitespace-pre-wrap">
+                      {m.caption ? m.caption.slice(0, 160) : "(No caption)"}
+                    </div>
+                    {m.permalink ? (
+                      <a className="text-xs underline text-slate-600" href={m.permalink} target="_blank" rel="noreferrer">
+                        Open on Instagram
+                      </a>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {/* ✅ instagram_manage_messages proof: send DM from dashboard */}
+            <div className="border rounded-lg bg-white p-3 space-y-2">
+              <div className="text-sm font-medium text-slate-800">Send a DM (Review Proof)</div>
+
+              <div className="text-xs text-slate-500">
+                Tip: If you leave recipient empty, server uses <b>lastIgSenderId</b> (you must DM the IG account once to capture it).
+              </div>
+
+              <input
+                value={igDmRecipientId}
+                onChange={(e) => setIgDmRecipientId(e.target.value)}
+                placeholder="Recipient ID (optional)"
+                className="border rounded p-2 text-sm w-full"
+              />
+
+              <textarea
+                value={igDmText}
+                onChange={(e) => setIgDmText(e.target.value)}
+                placeholder="Message text"
+                className="border rounded p-2 text-sm w-full min-h-[90px]"
+              />
+
+              <div className="flex gap-2 flex-wrap items-center">
+                <Button onClick={sendIgDm} disabled={igSendingDm || !igDmText.trim()}>
+                  {igSendingDm ? "Sending..." : "Send DM"}
+                </Button>
+
+                {igDmResult?.ok ? (
+                  <div className="text-xs text-green-700">
+                    Sent ✅ (recipient used: {igDmResult.usedRecipientId || "—"})
+                  </div>
+                ) : null}
+              </div>
+
+              {igDmResult ? (
+                <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
+                  {JSON.stringify(igDmResult, null, 2)}
+                </pre>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
@@ -928,10 +1047,18 @@ const res = await fetch(
               </p>
 
               <div className="space-y-1 text-sm mt-3">
-                <p><span className="font-medium">Web:</span> {conversationStats.bySource?.web ?? 0}</p>
-                <p><span className="font-medium">Messenger:</span> {conversationStats.bySource?.messenger ?? 0}</p>
-                <p><span className="font-medium">Instagram:</span> {conversationStats.bySource?.instagram ?? 0}</p>
-                <p><span className="font-medium">WhatsApp:</span> {conversationStats.bySource?.whatsapp ?? 0}</p>
+                <p>
+                  <span className="font-medium">Web:</span> {conversationStats.bySource?.web ?? 0}
+                </p>
+                <p>
+                  <span className="font-medium">Messenger:</span> {conversationStats.bySource?.messenger ?? 0}
+                </p>
+                <p>
+                  <span className="font-medium">Instagram:</span> {conversationStats.bySource?.instagram ?? 0}
+                </p>
+                <p>
+                  <span className="font-medium">WhatsApp:</span> {conversationStats.bySource?.whatsapp ?? 0}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -1092,10 +1219,7 @@ const res = await fetch(
               <Button variant={selectedSource === "web" ? "default" : "outline"} onClick={() => setSelectedSource("web")}>
                 Web
               </Button>
-              <Button
-                variant={selectedSource === "messenger" ? "default" : "outline"}
-                onClick={() => setSelectedSource("messenger")}
-              >
+              <Button variant={selectedSource === "messenger" ? "default" : "outline"} onClick={() => setSelectedSource("messenger")}>
                 Messenger
               </Button>
               <Button variant={selectedSource === "instagram" ? "default" : "outline"} onClick={() => setSelectedSource("instagram")}>
@@ -1160,11 +1284,7 @@ const res = await fetch(
                 Full
               </Button>
 
-              <Button
-                size="sm"
-                variant={payloadViewMode === "messages" ? "default" : "outline"}
-                onClick={() => setPayloadViewMode("messages")}
-              >
+              <Button size="sm" variant={payloadViewMode === "messages" ? "default" : "outline"} onClick={() => setPayloadViewMode("messages")}>
                 Messages only
               </Button>
             </div>
@@ -1176,10 +1296,7 @@ const res = await fetch(
                 const full = lastWebhookPayload;
                 const messagesOnly = extractMessagesFromPayload(lastWebhookPayload);
 
-                const dataToShow =
-                  payloadViewMode === "messages"
-                    ? messagesOnly || { note: "No message events found in this payload." }
-                    : full;
+                const dataToShow = payloadViewMode === "messages" ? messagesOnly || { note: "No message events found in this payload." } : full;
 
                 return (
                   <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
