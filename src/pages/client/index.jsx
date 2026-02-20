@@ -375,63 +375,75 @@ const connectWhatsApp = async () => {
 
     setWaLoading(true);
 
-    // Get config_id from backend (you store it in env)
-    const cfgRes = await fetch(`https://serverowned.onrender.com/api/whatsapp/config`, {
-      credentials: "include",
-    });
+    // 1️⃣ Get config_id from backend
+    const cfgRes = await fetch(
+      "https://serverowned.onrender.com/api/whatsapp/config",
+      { credentials: "include" }
+    );
     const cfg = await cfgRes.json();
-    if (!cfgRes.ok || !cfg.ok) {
-      setWaError(cfg.error || "Could not load WhatsApp config");
+
+    if (!cfgRes.ok || !cfg.ok || !cfg.configId) {
+      setWaError(cfg.error || "Could not load WhatsApp config.");
+      setWaLoading(false);
       return;
     }
 
+    // 2️⃣ FB.login (NOT async callback)
     window.FB.login(
-      async (response) => {
+      function (response) {
         if (!response.authResponse) {
           setWaError("User cancelled login.");
           setWaLoading(false);
           return;
         }
 
-        // When using response_type=code, Meta gives you a "code" to exchange server-side
-        const code = response.authResponse?.code;
-        if (!code) {
-          setWaError("No code returned. Make sure you enabled response_type=code in login options.");
-          setWaLoading(false);
-          return;
-        }
+        // Run async logic inside an IIFE
+        (async () => {
+          try {
+            const code = response.authResponse?.code;
 
-        const res = await fetch(`https://serverowned.onrender.com/api/whatsapp/embedded/exchange`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ clientId, code }),
-        });
+            if (!code) {
+              throw new Error(
+                "No code returned. Make sure response_type=code is enabled."
+              );
+            }
 
-        const data = await res.json();
+            const res = await fetch(
+              "https://serverowned.onrender.com/api/whatsapp/embedded/exchange",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ clientId, code }),
+              }
+            );
 
-        if (!res.ok || !data.ok) {
-          setWaError(JSON.stringify(data.error || data));
-          setWaLoading(false);
-          return;
-        }
+            const data = await res.json();
 
-        // refresh status
-        await fetchWhatsAppStatus();
-        setWaLoading(false);
-        alert("WhatsApp connected ✅");
+            if (!res.ok || !data.ok) {
+              throw new Error(JSON.stringify(data.error || data));
+            }
+
+            await fetchWhatsAppStatus();
+            alert("WhatsApp connected ✅");
+          } catch (err) {
+            setWaError(err.message);
+          } finally {
+            setWaLoading(false);
+          }
+        })();
       },
       {
-        scope: "whatsapp_business_management,whatsapp_business_messaging",
-        config_id: cfg.configId,                  // from your backend
+        scope:
+          "whatsapp_business_management,whatsapp_business_messaging",
+        config_id: cfg.configId,
         response_type: "code",
         override_default_response_type: true,
       }
     );
   } catch (e) {
     setWaError(e.message);
-  } finally {
-    // FB.login callback finishes later
+    setWaLoading(false);
   }
 };
 
