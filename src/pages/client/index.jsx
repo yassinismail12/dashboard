@@ -45,6 +45,15 @@ export default function ClientDashboard() {
   const [igDmText, setIgDmText] = useState("✅ Test message from dashboard");
   const [igSendingDm, setIgSendingDm] = useState(false);
   const [igDmResult, setIgDmResult] = useState(null);
+const [wa, setWa] = useState({
+  connected: false,
+  wabaId: "",
+  phoneNumberId: "",
+  displayPhone: "",
+});
+
+const [waLoading, setWaLoading] = useState(false);
+const [waError, setWaError] = useState("");
 
   const [showConvoModal, setShowConvoModal] = useState(false);
   const [currentConvos, setCurrentConvos] = useState([]);
@@ -120,6 +129,7 @@ export default function ClientDashboard() {
     fetchClientPageConnection();
     fetchWebhookStatus();
     fetchClientHealth(); // ✅ NEW
+      fetchWhatsAppStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
 
@@ -238,7 +248,25 @@ export default function ClientDashboard() {
       setIgLoadingMedia(false);
     }
   };
-
+const fetchWhatsAppStatus = async () => {
+  try {
+    if (!clientId) return;
+    const res = await fetch(`https://serverowned.onrender.com/api/whatsapp/status?clientId=${encodeURIComponent(clientId)}`, {
+      credentials: "include",
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      setWa({
+        connected: Boolean(data.connected),
+        wabaId: data.wabaId || "",
+        phoneNumberId: data.phoneNumberId || "",
+        displayPhone: data.displayPhone || "",
+      });
+    }
+  } catch (e) {
+    console.error(e);
+  }
+};
   // ✅ IG DM sender (instagram_manage_messages proof)
   const sendIgDm = async () => {
     try {
@@ -335,6 +363,77 @@ export default function ClientDashboard() {
       setIsSubscribing(false);
     }
   };
+const connectWhatsApp = async () => {
+  try {
+    if (!clientId) return;
+    setWaError("");
+
+    if (!window.FB) {
+      setWaError("Facebook SDK not loaded yet. Refresh and try again.");
+      return;
+    }
+
+    setWaLoading(true);
+
+    // Get config_id from backend (you store it in env)
+    const cfgRes = await fetch(`https://serverowned.onrender.com/api/whatsapp/config`, {
+      credentials: "include",
+    });
+    const cfg = await cfgRes.json();
+    if (!cfgRes.ok || !cfg.ok) {
+      setWaError(cfg.error || "Could not load WhatsApp config");
+      return;
+    }
+
+    window.FB.login(
+      async (response) => {
+        if (!response.authResponse) {
+          setWaError("User cancelled login.");
+          setWaLoading(false);
+          return;
+        }
+
+        // When using response_type=code, Meta gives you a "code" to exchange server-side
+        const code = response.authResponse?.code;
+        if (!code) {
+          setWaError("No code returned. Make sure you enabled response_type=code in login options.");
+          setWaLoading(false);
+          return;
+        }
+
+        const res = await fetch(`https://serverowned.onrender.com/api/whatsapp/embedded/exchange`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ clientId, code }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          setWaError(JSON.stringify(data.error || data));
+          setWaLoading(false);
+          return;
+        }
+
+        // refresh status
+        await fetchWhatsAppStatus();
+        setWaLoading(false);
+        alert("WhatsApp connected ✅");
+      },
+      {
+        scope: "whatsapp_business_management,whatsapp_business_messaging",
+        config_id: cfg.configId,                  // from your backend
+        response_type: "code",
+        override_default_response_type: true,
+      }
+    );
+  } catch (e) {
+    setWaError(e.message);
+  } finally {
+    // FB.login callback finishes later
+  }
+};
 
   const loadRecentPosts = async () => {
     if (!pageId) return;
@@ -1031,7 +1130,39 @@ export default function ClientDashboard() {
             </div>
           </CardContent>
         </Card>
+<Card className="p-4 border-l-4 border-emerald-600">
+  <CardHeader>
+    <CardTitle className="text-lg font-semibold">WhatsApp Connection (Embedded Signup)</CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-3">
+    <p className="text-sm text-slate-600">
+      Connect WhatsApp via Meta Embedded Signup. This is used for WhatsApp messaging and template management.
+    </p>
 
+    {wa.connected ? (
+      <div className="border rounded-lg bg-white p-3 text-sm">
+        <div><b>Status:</b> ✅ Connected</div>
+        <div><b>WABA ID:</b> {wa.wabaId || "—"}</div>
+        <div><b>Phone Number ID:</b> {wa.phoneNumberId || "—"}</div>
+        <div><b>Display Phone:</b> {wa.displayPhone || "—"}</div>
+      </div>
+    ) : (
+      <div className="text-sm text-slate-500">Not connected yet.</div>
+    )}
+
+    {waError ? <div className="text-xs text-red-600 break-words">{waError}</div> : null}
+
+    <div className="flex gap-2 flex-wrap">
+      <Button onClick={connectWhatsApp} disabled={!clientId || waLoading}>
+        {waLoading ? "Connecting..." : "Connect WhatsApp"}
+      </Button>
+
+      <Button variant="outline" onClick={fetchWhatsAppStatus} disabled={!clientId}>
+        Refresh Status
+      </Button>
+    </div>
+  </CardContent>
+</Card>
         {/* Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
           <Card className="hover:shadow-md transition-shadow duration-150">
