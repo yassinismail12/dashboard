@@ -439,6 +439,7 @@ const connectWhatsApp = async () => {
         config_id: cfg.configId,
         response_type: "code",
         override_default_response_type: true,
+            redirect_uri: "https://serverowned.onrender.com/api/whatsapp/embedded/redirect",
       }
     );
   } catch (e) {
