@@ -363,28 +363,9 @@ const fetchWhatsAppStatus = async () => {
       setIsSubscribing(false);
     }
   };
-const connectWhatsApp = async () => {
-  try {
-    if (!clientId) return;
-    setWaError("");
-
-    // Optional: you can fetch config first to ensure it's ready
-    const cfgRes = await fetch("https://serverowned.onrender.com/api/whatsapp/config", {
-      credentials: "include",
-    });
-    const cfg = await cfgRes.json();
-    if (!cfgRes.ok || !cfg.ok || !cfg.configId) {
-      setWaError(cfg?.error || "Could not load WhatsApp config.");
-      return;
-    }
-
-    // ✅ Server will build the correct OAuth URL including redirect_uri + state
-    window.location.href = `https://serverowned.onrender.com/api/whatsapp/embedded/start?clientId=${encodeURIComponent(
-      clientId
-    )}`;
-  } catch (e) {
-    setWaError(e.message);
-  }
+const connectWhatsApp = () => {
+  window.location.href =
+    `https://serverowned.onrender.com/api/whatsapp/embedded/start?clientId=${encodeURIComponent(clientId)}`;
 };
   const loadRecentPosts = async () => {
     if (!pageId) return;
