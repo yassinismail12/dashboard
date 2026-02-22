@@ -368,62 +368,80 @@ const connectWhatsApp = async () => {
     if (!clientId) return;
     setWaError("");
 
+    // 0) Ensure SDK exists
     if (!window.FB) {
-      setWaError("Facebook SDK not loaded yet. Refresh and try again.");
+      setWaError("Facebook SDK not loaded. Refresh and try again.");
       return;
     }
 
     setWaLoading(true);
 
-    // get config_id + redirectUri from backend (prevents mismatch)
-   const res = await fetch("https://serverowned.onrender.com/api/whatsapp/config", {
-  credentials: "include",
-});
+    // 1) Get config + redirect from backend
+    const cfgRes = await fetch("https://serverowned.onrender.com/api/whatsapp/config", {
+      credentials: "include",
+    });
 
-const text = await res.text();
-console.log("CONFIG status:", res.status);
-console.log("CONFIG content-type:", res.headers.get("content-type"));
-console.log("CONFIG raw:", text.slice(0, 300));
+    const cfgText = await cfgRes.text();
+    console.log("WA cfg raw:", cfgRes.status, cfgText.slice(0, 300));
 
-let cfg;
-try {
-  cfg = JSON.parse(text);
-} catch (e) {
-  throw new Error("Config endpoint did not return JSON. First 300 chars: " + text.slice(0, 300));
-}
+    let cfg;
+    try {
+      cfg = JSON.parse(cfgText);
+    } catch {
+      throw new Error("Config endpoint did not return JSON. First chars: " + cfgText.slice(0, 60));
+    }
 
-    const redirectUri = cfg.redirectUri; // must match backend env and Meta whitelist
+    if (!cfgRes.ok || !cfg.ok || !cfg.configId || !cfg.redirectUri) {
+      throw new Error("Bad config: " + JSON.stringify(cfg));
+    }
 
+    console.log("Using WA config:", cfg);
+
+    // 2) Start login
     window.FB.login(
-      (response) => {
-        if (!response?.authResponse) {
-          setWaError("User cancelled login.");
-          setWaLoading(false);
-          return;
-        }
+      function (response) {
+        console.log("FB.login response:", response);
 
-        const code = response.authResponse?.code;
-        if (!code) {
-          setWaError("No code returned. Make sure response_type=code is enabled.");
+        if (!response.authResponse) {
+          setWaError("User cancelled login or no authResponse.");
           setWaLoading(false);
           return;
         }
 
         (async () => {
           try {
-            const res = await fetch("https://serverowned.onrender.com/api/whatsapp/embedded/exchange", {
+            const code = response.authResponse?.code;
+            console.log("Returned code?", code ? code.slice(0, 12) + "..." : null);
+
+            if (!code) {
+              throw new Error("No code returned. Ensure response_type=code + override_default_response_type=true");
+            }
+
+            // 3) Exchange code on backend
+            const exRes = await fetch("https://serverowned.onrender.com/api/whatsapp/embedded/exchange", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               credentials: "include",
               body: JSON.stringify({ clientId, code }),
             });
 
-            const data = await res.json();
-            if (!res.ok || !data.ok) throw new Error(JSON.stringify(data.error || data));
+            const exText = await exRes.text();
+            console.log("WA exchange raw:", exRes.status, exText.slice(0, 800));
 
-            await fetchWhatsAppStatus();
-            alert("WhatsApp connected ✅");
+            let ex;
+            try {
+              ex = JSON.parse(exText);
+            } catch {
+              throw new Error("Exchange did not return JSON. First chars: " + exText.slice(0, 60));
+            }
+
+            if (!exRes.ok || !ex.ok) {
+              throw new Error("Exchange failed: " + JSON.stringify(ex));
+            }
+
+            alert("WhatsApp connected ✅ (code->token worked)");
           } catch (err) {
+            console.error(err);
             setWaError(err.message);
           } finally {
             setWaLoading(false);
@@ -435,12 +453,11 @@ try {
         config_id: cfg.configId,
         response_type: "code",
         override_default_response_type: true,
-
-        // ✅ THIS is the key. Must match backend exchange redirect_uri exactly.
-        redirect_uri: redirectUri,
+        redirect_uri: cfg.redirectUri, // ✅ MUST match backend redirect EXACTLY
       }
     );
   } catch (e) {
+    console.error(e);
     setWaError(e.message);
     setWaLoading(false);
   }
