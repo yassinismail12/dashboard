@@ -387,7 +387,7 @@ const connectWhatsApp = async () => {
       setWaLoading(false);
       return;
     }
-
+console.log("FB SDK appId?", window.FB?._apiKey || window.FB?.getAppId?.());
     // 2️⃣ FB.login (NOT async callback)
     window.FB.login(
       function (response) {
@@ -439,9 +439,12 @@ console.log("WA exchange result:", data);
         config_id: cfg.configId,
         response_type: "code",
         override_default_response_type: true,
-            redirect_uri: "https://serverowned.onrender.com/api/whatsapp/embedded/redirect",
+           redirect_uri: cfg.redirectUri,
+           
       }
+      
     );
+    console.log("Using WA config:", cfg);
   } catch (e) {
     setWaError(e.message);
     setWaLoading(false);
