@@ -419,7 +419,7 @@ const connectWhatsApp = async () => {
             );
 
             const data = await res.json();
-
+console.log("WA exchange result:", data);
             if (!res.ok || !data.ok) {
               throw new Error(JSON.stringify(data.error || data));
             }
