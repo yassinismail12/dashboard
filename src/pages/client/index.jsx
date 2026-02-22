@@ -50,6 +50,7 @@ const [wa, setWa] = useState({
   wabaId: "",
   phoneNumberId: "",
   displayPhone: "",
+  displayName: "",
 });
 
 const [waLoading, setWaLoading] = useState(false);
@@ -261,6 +262,7 @@ const fetchWhatsAppStatus = async () => {
         wabaId: data.wabaId || "",
         phoneNumberId: data.phoneNumberId || "",
         displayPhone: data.displayPhone || "",
+        displayName: data.whatsappVerifiedName || "",
       });
     }
   } catch (e) {
@@ -1076,6 +1078,7 @@ const connectWhatsApp = () => {
         <div><b>WABA ID:</b> {wa.wabaId || "—"}</div>
         <div><b>Phone Number ID:</b> {wa.phoneNumberId || "—"}</div>
         <div><b>Display Phone:</b> {wa.displayPhone || "—"}</div>
+           <div><b>Display Name:</b> {wa.displayName || "—"}</div>
       </div>
     ) : (
       <div className="text-sm text-slate-500">Not connected yet.</div>
