@@ -363,9 +363,82 @@ const fetchWhatsAppStatus = async () => {
       setIsSubscribing(false);
     }
   };
-const connectWhatsApp = () => {
-  window.location.href =
-    `https://serverowned.onrender.com/api/whatsapp/embedded/start?clientId=${encodeURIComponent(clientId)}`;
+const connectWhatsApp = async () => {
+  try {
+    if (!clientId) return;
+    setWaError("");
+
+    if (!window.FB) {
+      setWaError("Facebook SDK not loaded yet. Refresh and try again.");
+      return;
+    }
+
+    setWaLoading(true);
+
+    // get config_id + redirectUri from backend (prevents mismatch)
+    const cfgRes = await fetch("https://serverowned.onrender.com/api/whatsapp/config", {
+      credentials: "include",
+    });
+    const cfg = await cfgRes.json();
+
+    if (!cfgRes.ok || !cfg.ok || !cfg.configId) {
+      setWaError(cfg?.error || "Could not load WhatsApp config.");
+      setWaLoading(false);
+      return;
+    }
+
+    const redirectUri = cfg.redirectUri; // must match backend env and Meta whitelist
+
+    window.FB.login(
+      (response) => {
+        if (!response?.authResponse) {
+          setWaError("User cancelled login.");
+          setWaLoading(false);
+          return;
+        }
+
+        const code = response.authResponse?.code;
+        if (!code) {
+          setWaError("No code returned. Make sure response_type=code is enabled.");
+          setWaLoading(false);
+          return;
+        }
+
+        (async () => {
+          try {
+            const res = await fetch("https://serverowned.onrender.com/api/whatsapp/embedded/exchange", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ clientId, code }),
+            });
+
+            const data = await res.json();
+            if (!res.ok || !data.ok) throw new Error(JSON.stringify(data.error || data));
+
+            await fetchWhatsAppStatus();
+            alert("WhatsApp connected ✅");
+          } catch (err) {
+            setWaError(err.message);
+          } finally {
+            setWaLoading(false);
+          }
+        })();
+      },
+      {
+        scope: "whatsapp_business_management,whatsapp_business_messaging",
+        config_id: cfg.configId,
+        response_type: "code",
+        override_default_response_type: true,
+
+        // ✅ THIS is the key. Must match backend exchange redirect_uri exactly.
+        redirect_uri: redirectUri,
+      }
+    );
+  } catch (e) {
+    setWaError(e.message);
+    setWaLoading(false);
+  }
 };
   const loadRecentPosts = async () => {
     if (!pageId) return;
