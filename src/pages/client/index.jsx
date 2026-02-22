@@ -376,16 +376,21 @@ const connectWhatsApp = async () => {
     setWaLoading(true);
 
     // get config_id + redirectUri from backend (prevents mismatch)
-    const cfgRes = await fetch("https://serverowned.onrender.com/api/whatsapp/config", {
-      credentials: "include",
-    });
-    const cfg = await cfgRes.json();
+   const res = await fetch("https://serverowned.onrender.com/api/whatsapp/config", {
+  credentials: "include",
+});
 
-    if (!cfgRes.ok || !cfg.ok || !cfg.configId) {
-      setWaError(cfg?.error || "Could not load WhatsApp config.");
-      setWaLoading(false);
-      return;
-    }
+const text = await res.text();
+console.log("CONFIG status:", res.status);
+console.log("CONFIG content-type:", res.headers.get("content-type"));
+console.log("CONFIG raw:", text.slice(0, 300));
+
+let cfg;
+try {
+  cfg = JSON.parse(text);
+} catch (e) {
+  throw new Error("Config endpoint did not return JSON. First 300 chars: " + text.slice(0, 300));
+}
 
     const redirectUri = cfg.redirectUri; // must match backend env and Meta whitelist
 
