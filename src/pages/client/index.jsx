@@ -368,89 +368,24 @@ const connectWhatsApp = async () => {
     if (!clientId) return;
     setWaError("");
 
-    if (!window.FB) {
-      setWaError("Facebook SDK not loaded yet. Refresh and try again.");
-      return;
-    }
-
-    setWaLoading(true);
-
-    // 1️⃣ Get config_id from backend
-    const cfgRes = await fetch(
-      "https://serverowned.onrender.com/api/whatsapp/config",
-      { credentials: "include" }
-    );
+    // Optional: you can fetch config first to ensure it's ready
+    const cfgRes = await fetch("https://serverowned.onrender.com/api/whatsapp/config", {
+      credentials: "include",
+    });
     const cfg = await cfgRes.json();
-
     if (!cfgRes.ok || !cfg.ok || !cfg.configId) {
-      setWaError(cfg.error || "Could not load WhatsApp config.");
-      setWaLoading(false);
+      setWaError(cfg?.error || "Could not load WhatsApp config.");
       return;
     }
-console.log("FB SDK appId?", window.FB?._apiKey || window.FB?.getAppId?.());
-    // 2️⃣ FB.login (NOT async callback)
-    window.FB.login(
-      function (response) {
-        if (!response.authResponse) {
-          setWaError("User cancelled login.");
-          setWaLoading(false);
-          return;
-        }
 
-        // Run async logic inside an IIFE
-        (async () => {
-          try {
-            const code = response.authResponse?.code;
-
-            if (!code) {
-              throw new Error(
-                "No code returned. Make sure response_type=code is enabled."
-              );
-            }
-
-            const res = await fetch(
-              "https://serverowned.onrender.com/api/whatsapp/embedded/exchange",
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ clientId, code }),
-              }
-            );
-
-            const data = await res.json();
-console.log("WA exchange result:", data);
-            if (!res.ok || !data.ok) {
-              throw new Error(JSON.stringify(data.error || data));
-            }
-
-            await fetchWhatsAppStatus();
-            alert("WhatsApp connected ✅");
-          } catch (err) {
-            setWaError(err.message);
-          } finally {
-            setWaLoading(false);
-          }
-        })();
-      },
-      {
-        scope:
-          "whatsapp_business_management,whatsapp_business_messaging",
-        config_id: cfg.configId,
-        response_type: "code",
-        override_default_response_type: true,
-           redirect_uri: cfg.redirectUri,
-           
-      }
-      
-    );
-    console.log("Using WA config:", cfg);
+    // ✅ Server will build the correct OAuth URL including redirect_uri + state
+    window.location.href = `https://serverowned.onrender.com/api/whatsapp/embedded/start?clientId=${encodeURIComponent(
+      clientId
+    )}`;
   } catch (e) {
     setWaError(e.message);
-    setWaLoading(false);
   }
 };
-
   const loadRecentPosts = async () => {
     if (!pageId) return;
     try {
