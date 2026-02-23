@@ -52,7 +52,11 @@ const [wa, setWa] = useState({
   displayPhone: "",
  
 });
-
+// ✅ WA Test Send (whatsapp_business_messaging proof)
+const [waTestTo, setWaTestTo] = useState("");
+const [waTestText, setWaTestText] = useState("✅ Test message from dashboard (WhatsApp)");
+const [waSendingTest, setWaSendingTest] = useState(false);
+const [waTestResult, setWaTestResult] = useState(null);
 const [waLoading, setWaLoading] = useState(false);
 const [waError, setWaError] = useState("");
 
@@ -365,6 +369,43 @@ const fetchWhatsAppStatus = async () => {
       setIsSubscribing(false);
     }
   };
+  const sendWaTest = async () => {
+  try {
+    if (!clientId) return;
+    setWaError("");
+    setWaTestResult(null);
+    setWaSendingTest(true);
+
+    const res = await fetch(`https://serverowned.onrender.com/whatsapp/send-test`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        // ✅ IMPORTANT: you can’t safely keep ADMIN_SECRET in frontend.
+        // Better: protect this endpoint using your normal client session (cookie/JWT) on backend.
+        // If you keep x-admin-secret, it must be server-side only.
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        clientId,
+        to: waTestTo,
+        text: waTestText,
+      }),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok || !json.ok) {
+      setWaError(JSON.stringify(json.error || json));
+      return;
+    }
+
+    setWaTestResult(json);
+  } catch (e) {
+    setWaError(e.message);
+  } finally {
+    setWaSendingTest(false);
+  }
+};
 const connectWhatsApp = () => {
   window.location.href = `https://serverowned.onrender.com/auth/whatsapp?clientId=${clientId}`;
 };
@@ -1095,6 +1136,42 @@ const connectWhatsApp = () => {
         Refresh Status
       </Button>
     </div>
+    {/* ✅ whatsapp_business_messaging proof: send message from dashboard */}
+<div className="border rounded-lg bg-white p-3 space-y-2">
+  <div className="text-sm font-medium text-slate-800">Send a WhatsApp Test Message (Review Proof)</div>
+
+  <div className="text-xs text-slate-500">
+    Tip: WhatsApp may require the user to message you first (24h window). For testing, send “Hi” to the business number, then run this.
+  </div>
+
+  <input
+    value={waTestTo}
+    onChange={(e) => setWaTestTo(e.target.value)}
+    placeholder="Recipient number (e.g. +2011xxxxxxx)"
+    className="border rounded p-2 text-sm w-full"
+  />
+
+  <textarea
+    value={waTestText}
+    onChange={(e) => setWaTestText(e.target.value)}
+    placeholder="Message text"
+    className="border rounded p-2 text-sm w-full min-h-[90px]"
+  />
+
+  <div className="flex gap-2 flex-wrap items-center">
+    <Button onClick={sendWaTest} disabled={waSendingTest || !waTestTo.trim() || !waTestText.trim() || !wa.connected}>
+      {waSendingTest ? "Sending..." : "Send WhatsApp Test"}
+    </Button>
+
+    {waTestResult?.ok ? <div className="text-xs text-green-700">Sent ✅</div> : null}
+  </div>
+
+  {waTestResult ? (
+    <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
+      {JSON.stringify(waTestResult, null, 2)}
+    </pre>
+  ) : null}
+</div>
   </CardContent>
 </Card>
         {/* Stat Cards */}
