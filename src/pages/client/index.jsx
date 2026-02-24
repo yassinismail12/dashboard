@@ -8,32 +8,19 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 /**
- * ✅ Added:
- * - "Build your bot" gate (connect buttons disabled until bot is built)
- * - Build modal with 2 methods:
- *    1) Quick Form (structured)
- *    2) Paste / Upload .txt (unstructured)
- * - Best-effort backend integration:
- *    - Try to read knowledge status from GET /api/clients/:clientId (fields: knowledgeStatus/knowledgeVersion/botBuilt)
- *    - Fallback to GET /api/knowledge/status?clientId=...
- *    - Build actions:
- *        - POST /api/knowledge/build (json)
- *        - POST /api/knowledge/upload (multipart)
- *        - Fallback: POST /api/knowledge/rebuild/:clientId (if you already use this)
+ * ✅ This file includes:
+ * - Bot gate (connections locked until knowledge is built)
+ * - Build modal: Quick Form / Paste Text / Upload .txt
+ * - Calls (best-effort):
+ *   - GET /api/clients/:clientId         (preferred, if exists)
+ *   - GET /api/knowledge/status?clientId (fallback)
+ *   - POST /api/knowledge/build          (preferred)
+ *   - POST /api/knowledge/upload         (preferred)
+ *   - POST /api/knowledge/rebuild/:id    (fallback)
  *
- * ⚠️ You MUST ensure one of these endpoints exists on your server:
- * - GET  /api/clients/:clientId  -> includes knowledge status fields
- * OR
- * - GET  /api/knowledge/status?clientId=
- *
- * And at least one of:
- * - POST /api/knowledge/build
- * - POST /api/knowledge/upload
- * - POST /api/knowledge/rebuild/:clientId
- *
- * If your current endpoint is only rebuild:
- *   https://serverowned.onrender.com/api/knowledge/rebuild/CLIENT_ID
- * then keep that and the UI still works: it will call rebuild as fallback.
+ * ✅ IMPORTANT:
+ * - If you add new fields in Quick Form, you must ALSO update backend `formToText()` to include them,
+ *   otherwise they’ll be saved to client.files/profile but won’t be chunked as expected.
  */
 
 const BASE_URL = "https://serverowned.onrender.com";
@@ -71,8 +58,8 @@ export default function ClientDashboard() {
   const [igLoadingMedia, setIgLoadingMedia] = useState(false);
   const [igError, setIgError] = useState("");
 
-  // ✅ IG DM (instagram_manage_messages proof)
-  const [igDmRecipientId, setIgDmRecipientId] = useState(""); // optional (backend can use lastIgSenderId)
+  // ✅ IG DM proof
+  const [igDmRecipientId, setIgDmRecipientId] = useState("");
   const [igDmText, setIgDmText] = useState("✅ Test message from dashboard");
   const [igSendingDm, setIgSendingDm] = useState(false);
   const [igDmResult, setIgDmResult] = useState(null);
@@ -84,7 +71,7 @@ export default function ClientDashboard() {
     displayPhone: "",
   });
 
-  // ✅ WA Test Send (whatsapp_business_messaging proof)
+  // ✅ WA Test Send proof
   const [waTestTo, setWaTestTo] = useState("");
   const [waTestText, setWaTestText] = useState("✅ Test message from dashboard (WhatsApp)");
   const [waSendingTest, setWaSendingTest] = useState(false);
@@ -120,7 +107,7 @@ export default function ClientDashboard() {
   const [showWebhookModal, setShowWebhookModal] = useState(false);
   const [lastWebhookPayload, setLastWebhookPayload] = useState(null);
 
-  // ✅ NEW: health/warnings state
+  // ✅ Health/warnings state
   const [health, setHealth] = useState({ status: "ok", warnings: [] });
   const [healthLoading, setHealthLoading] = useState(false);
 
@@ -133,7 +120,7 @@ export default function ClientDashboard() {
   const [comments, setComments] = useState([]);
   const [commentsError, setCommentsError] = useState("");
 
-  // ✅ NEW: Bot build gate + modal
+  // ✅ Bot build gate + modal
   const [botReady, setBotReady] = useState(false);
   const [knowledgeVersion, setKnowledgeVersion] = useState(0);
   const [knowledgeStatusRaw, setKnowledgeStatusRaw] = useState("");
@@ -143,7 +130,12 @@ export default function ClientDashboard() {
   const [buildError, setBuildError] = useState("");
   const [buildSuccess, setBuildSuccess] = useState("");
 
-  // Quick form fields (keep short)
+  // ✅ Bot type (lets you choose chunking paths on backend)
+  // If your backend only supports "default", keep it "default".
+  const [botType, setBotType] = useState("default"); // "default" | "restaurant" | "realestate" (optional)
+
+  // ✅ Quick form fields
+  // If you add fields here, update backend formToText() to include them (important)
   const [botForm, setBotForm] = useState({
     businessName: "",
     businessType: "",
@@ -152,10 +144,14 @@ export default function ClientDashboard() {
     phoneWhatsapp: "",
     services: "",
     faqs: "",
+    // NEW (recommended for real estate)
+    listingsSummary: "",
+    paymentPlans: "",
+    policies: "",
   });
 
   // Paste / upload fields
-  const [rawSection, setRawSection] = useState("mixed"); // faqs | listings | offers | hours | policies | mixed
+  const [rawSection, setRawSection] = useState("mixed"); // faqs | listings | offers | hours | policies | paymentPlans | mixed
   const [rawText, setRawText] = useState("");
   const [rawFile, setRawFile] = useState(null);
 
@@ -165,13 +161,18 @@ export default function ClientDashboard() {
     return "";
   }, [clientId, botReady]);
 
+  // Clear build messages when modal/mode changes (prevents “stale error”)
+  useEffect(() => {
+    setBuildError("");
+    setBuildSuccess("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildMode, buildOpen]);
+
   // 🔹 Get user info from /api/me
   useEffect(() => {
     async function fetchUser() {
       try {
-        const res = await fetch(`${BASE_URL}/api/me`, {
-          credentials: "include",
-        });
+        const res = await fetch(`${BASE_URL}/api/me`, { credentials: "include" });
         const data = await res.json();
 
         if (!res.ok || data.role !== "client") {
@@ -189,7 +190,7 @@ export default function ClientDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 🔹 Fetch stats & handover status when clientId changes
+  // 🔹 Fetch dashboard data when clientId changes
   useEffect(() => {
     if (!clientId) return;
     fetchStats();
@@ -199,27 +200,22 @@ export default function ClientDashboard() {
     fetchWebhookStatus();
     fetchClientHealth();
     fetchWhatsAppStatus();
-    fetchKnowledgeGate(); // ✅ NEW
+    fetchKnowledgeGate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
 
-  // ✅ NEW: Determine whether bot is built (gate connections)
+  // ✅ Determine whether bot is built (gate connections)
   const fetchKnowledgeGate = async () => {
     try {
       if (!clientId) return;
 
-      // 1) Try client doc first (you already call this endpoint)
+      // 1) Try client doc first
       const r1 = await fetch(`${BASE_URL}/api/clients/${clientId}`, { credentials: "include" });
-      const c1 = await r1.json();
+      const c1 = await r1.json().catch(() => ({}));
 
       if (r1.ok) {
-        // Accept multiple possible shapes (so you can add any of these fields)
-        const v =
-          Number(c1?.knowledgeVersion || c1?.knowledge?.version || 0) ||
-          0;
-
-        const status =
-          String(c1?.knowledgeStatus || c1?.knowledge?.status || c1?.botStatus || "").trim();
+        const v = Number(c1?.knowledgeVersion || c1?.knowledge?.version || 0) || 0;
+        const status = String(c1?.knowledgeStatus || c1?.knowledge?.status || c1?.botStatus || "").trim();
 
         const built =
           Boolean(c1?.botBuilt) ||
@@ -234,10 +230,11 @@ export default function ClientDashboard() {
       }
 
       // 2) Fallback endpoint
-      const r2 = await fetch(`${BASE_URL}/api/knowledge/status?clientId=${encodeURIComponent(clientId)}`, {
-        credentials: "include",
-      });
-      const j2 = await r2.json();
+      const r2 = await fetch(
+        `${BASE_URL}/api/knowledge/status?clientId=${encodeURIComponent(clientId)}&botType=${encodeURIComponent(botType)}`,
+        { credentials: "include" }
+      );
+      const j2 = await r2.json().catch(() => ({}));
 
       if (r2.ok && j2) {
         const v = Number(j2?.version || j2?.knowledgeVersion || 0) || 0;
@@ -247,16 +244,18 @@ export default function ClientDashboard() {
         setKnowledgeVersion(v);
         setKnowledgeStatusRaw(status || (built ? "ready" : "empty"));
         setBotReady(built);
+      } else {
+        setBotReady(false);
+        setKnowledgeStatusRaw("unknown");
       }
     } catch (e) {
       console.error("fetchKnowledgeGate error:", e);
-      // If we can’t confirm, keep locked (safer)
       setBotReady(false);
       setKnowledgeStatusRaw("unknown");
     }
   };
 
-  // ✅ NEW: Build / Rebuild knowledge
+  // ✅ Build / Rebuild knowledge
   const submitBuild = async () => {
     try {
       if (!clientId) return;
@@ -264,7 +263,7 @@ export default function ClientDashboard() {
       setBuildSuccess("");
       setBuildLoading(true);
 
-      // Small validation
+      // Validation
       if (buildMode === "form") {
         const hasAny =
           botForm.businessName.trim() ||
@@ -273,7 +272,10 @@ export default function ClientDashboard() {
           botForm.hours.trim() ||
           botForm.phoneWhatsapp.trim() ||
           botForm.services.trim() ||
-          botForm.faqs.trim();
+          botForm.faqs.trim() ||
+          botForm.listingsSummary.trim() ||
+          botForm.paymentPlans.trim() ||
+          botForm.policies.trim();
 
         if (!hasAny) {
           setBuildError("Please fill at least one field to build your bot.");
@@ -281,21 +283,16 @@ export default function ClientDashboard() {
         }
       }
 
-      if (buildMode === "paste") {
-        if (!rawText.trim()) {
-          setBuildError("Paste your text first.");
-          return;
-        }
+      if (buildMode === "paste" && !rawText.trim()) {
+        setBuildError("Paste your text first.");
+        return;
       }
 
-      if (buildMode === "upload") {
-        if (!rawFile) {
-          setBuildError("Upload a .txt file first.");
-          return;
-        }
+      if (buildMode === "upload" && !rawFile) {
+        setBuildError("Upload a .txt file first.");
+        return;
       }
 
-      // Prefer dedicated build endpoints if you have them
       let ok = false;
       let lastJson = null;
 
@@ -305,6 +302,7 @@ export default function ClientDashboard() {
           buildMode === "form"
             ? {
                 clientId,
+                botType,
                 inputType: "form",
                 data: {
                   businessName: botForm.businessName,
@@ -314,10 +312,15 @@ export default function ClientDashboard() {
                   phoneWhatsapp: botForm.phoneWhatsapp,
                   services: botForm.services,
                   faqs: botForm.faqs,
+                  // NEW
+                  listingsSummary: botForm.listingsSummary,
+                  paymentPlans: botForm.paymentPlans,
+                  policies: botForm.policies,
                 },
               }
             : {
                 clientId,
+                botType,
                 inputType: "text",
                 section: rawSection,
                 text: rawText,
@@ -330,12 +333,12 @@ export default function ClientDashboard() {
             credentials: "include",
             body: JSON.stringify(payload),
           });
+
           const json = await res.json().catch(() => ({}));
           lastJson = json;
-
           if (res.ok && (json.ok || json.success || json.status === "ok")) ok = true;
         } catch {
-          // ignore, try fallback
+          // ignore and try fallback
         }
       }
 
@@ -345,6 +348,7 @@ export default function ClientDashboard() {
           const fd = new FormData();
           fd.append("clientId", clientId);
           fd.append("section", rawSection);
+          fd.append("botType", botType);
           fd.append("file", rawFile);
 
           const res = await fetch(`${BASE_URL}/api/knowledge/upload`, {
@@ -355,36 +359,29 @@ export default function ClientDashboard() {
 
           const json = await res.json().catch(() => ({}));
           lastJson = json;
-
           if (res.ok && (json.ok || json.success || json.status === "ok")) ok = true;
         } catch {
-          // ignore, try fallback
+          // ignore and try fallback
         }
       }
 
-      // C) Fallback: your existing rebuild endpoint
-      //    This is the one you mentioned before:
-      //    https://yourdomain.com/api/knowledge/rebuild/CLIENT_ID
-     // C) Fallback: your existing rebuild endpoint
-// C) Fallback: your existing rebuild endpoint
-if (!ok) {
- const res = await fetch(`${BASE_URL}/api/knowledge/rebuild/${encodeURIComponent(clientId)}`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  credentials: "include",
-  body: JSON.stringify({ botType: "default" }),
-});
-  const json = await res.json().catch(() => ({}));
-  lastJson = json;
+      // C) Fallback: rebuild endpoint
+      if (!ok) {
+        const res = await fetch(`${BASE_URL}/api/knowledge/rebuild/${encodeURIComponent(clientId)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ botType }),
+        });
 
-  if (res.ok) ok = Boolean(json.ok ?? json.success ?? true);
-}
-
-
+        const json = await res.json().catch(() => ({}));
+        lastJson = json;
+        if (res.ok) ok = Boolean(json.ok ?? json.success ?? true);
+      }
 
       if (!ok) {
         setBuildError(
-          `Build failed. Server response: ${JSON.stringify(lastJson || {}, null, 2).slice(0, 700)}`
+          `Build failed. Server response:\n${JSON.stringify(lastJson || {}, null, 2).slice(0, 1200)}`
         );
         return;
       }
@@ -392,17 +389,16 @@ if (!ok) {
       setBuildSuccess("✅ Bot built successfully. Connections are now unlocked.");
       setBuildOpen(false);
 
-      // Refresh gate + warnings after build
       await fetchKnowledgeGate();
       await fetchClientHealth();
     } catch (e) {
-      setBuildError(e.message || "Build failed.");
+      setBuildError(e?.message || "Build failed.");
     } finally {
       setBuildLoading(false);
     }
   };
 
-  // ✅ NEW: Fetch warnings/health
+  // ✅ Fetch warnings/health
   const fetchClientHealth = async () => {
     try {
       if (!clientId) return;
@@ -411,7 +407,7 @@ if (!ok) {
       const res = await fetch(`${BASE_URL}/api/clients/${clientId}/health`, {
         credentials: "include",
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (res.ok) {
         setHealth({
@@ -434,22 +430,18 @@ if (!ok) {
       console.error("Error fetching client health:", err);
       setHealth({
         status: "warning",
-        warnings: [
-          { code: "HEALTH_NETWORK", severity: "warn", message: "Could not load warnings (network/server error)." },
-        ],
+        warnings: [{ code: "HEALTH_NETWORK", severity: "warn", message: "Could not load warnings (network/server error)." }],
       });
     } finally {
       setHealthLoading(false);
     }
   };
 
-  // ✅ Fetch client object to show PAGE_NAME if connected
+  // ✅ Fetch client object to show page + IG info
   const fetchClientPageConnection = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/api/clients/${clientId}`, {
-        credentials: "include",
-      });
-      const data = await res.json();
+      const res = await fetch(`${BASE_URL}/api/clients/${clientId}`, { credentials: "include" });
+      const data = await res.json().catch(() => ({}));
 
       setPageName(data?.PAGE_NAME || "");
       setPageId(data?.pageId || "");
@@ -461,7 +453,7 @@ if (!ok) {
         igProfilePicUrl: data?.igProfilePicUrl || "",
       });
 
-      // Optional: Prefill business name in build form once
+      // Prefill business name once
       setBotForm((prev) => ({
         ...prev,
         businessName: prev.businessName || data?.businessName || data?.PAGE_NAME || "",
@@ -476,11 +468,10 @@ if (!ok) {
       setIgError("");
       setIgLoadingProfile(true);
 
-      const res = await fetch(
-        `${BASE_URL}/instagram/review/profile?clientId=${encodeURIComponent(clientId)}`,
-        { credentials: "include" }
-      );
-      const json = await res.json();
+      const res = await fetch(`${BASE_URL}/instagram/review/profile?clientId=${encodeURIComponent(clientId)}`, {
+        credentials: "include",
+      });
+      const json = await res.json().catch(() => ({}));
 
       if (!res.ok || !json.ok) {
         setIgError(JSON.stringify(json.error || json));
@@ -502,11 +493,10 @@ if (!ok) {
       setIgError("");
       setIgLoadingMedia(true);
 
-      const res = await fetch(
-        `${BASE_URL}/instagram/review/media?clientId=${encodeURIComponent(clientId)}`,
-        { credentials: "include" }
-      );
-      const json = await res.json();
+      const res = await fetch(`${BASE_URL}/instagram/review/media?clientId=${encodeURIComponent(clientId)}`, {
+        credentials: "include",
+      });
+      const json = await res.json().catch(() => ({}));
 
       if (!res.ok || !json.ok) {
         setIgError(JSON.stringify(json.error || json));
@@ -527,7 +517,7 @@ if (!ok) {
       const res = await fetch(`${BASE_URL}/api/whatsapp/status?clientId=${encodeURIComponent(clientId)}`, {
         credentials: "include",
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
         setWa({
           connected: Boolean(data.connected),
@@ -541,7 +531,7 @@ if (!ok) {
     }
   };
 
-  // ✅ IG DM sender (instagram_manage_messages proof)
+  // ✅ IG DM sender proof
   const sendIgDm = async () => {
     try {
       if (!clientId) return;
@@ -560,7 +550,7 @@ if (!ok) {
         }),
       });
 
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
 
       if (!res.ok || !json.ok) {
         setIgError(JSON.stringify(json.error || json));
@@ -582,7 +572,7 @@ if (!ok) {
       const res = await fetch(`${BASE_URL}/api/webhooks/status/${clientId}`, {
         credentials: "include",
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setWebhookStatus({
           webhookSubscribed: Boolean(data?.webhookSubscribed),
@@ -605,7 +595,7 @@ if (!ok) {
       body: JSON.stringify({ pageId, psid, text: "Your appointment has been scheduled." }),
     });
 
-    const data = await r.json();
+    const data = await r.json().catch(() => ({}));
     if (data.ok) alert("Sent ✅");
     else alert("Failed ❌ (check server logs)");
   }
@@ -622,7 +612,7 @@ if (!ok) {
         credentials: "include",
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data?.success) {
         setSubscribeError(data?.error || "Subscription failed (no success=true returned)");
@@ -656,7 +646,7 @@ if (!ok) {
         }),
       });
 
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
 
       if (!res.ok || !json.ok) {
         setWaError(JSON.stringify(json.error || json));
@@ -686,7 +676,7 @@ if (!ok) {
         { credentials: "include" }
       );
 
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
 
       if (!res.ok || !json.ok) {
         setPostsError(JSON.stringify(json.error || json));
@@ -716,7 +706,7 @@ if (!ok) {
         { credentials: "include" }
       );
 
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
 
       if (!res.ok || !json.ok) {
         setCommentsError(JSON.stringify(json.error || json));
@@ -755,7 +745,7 @@ if (!ok) {
       const res = await fetch(`${BASE_URL}/api/webhooks/last/${clientId}`, {
         credentials: "include",
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       setLastWebhookPayload(data || null);
 
@@ -777,10 +767,7 @@ if (!ok) {
 
     const fetchChartData = async () => {
       try {
-        const res = await fetch(`${BASE_URL}/api/stats/${clientId}?mode=${mode}`, {
-          credentials: "include",
-        });
-
+        const res = await fetch(`${BASE_URL}/api/stats/${clientId}?mode=${mode}`, { credentials: "include" });
         const contentType = res.headers.get("content-type") || "";
         const raw = await res.text();
 
@@ -795,7 +782,6 @@ if (!ok) {
         }
 
         const data = JSON.parse(raw);
-
         const results = Array.isArray(data) ? data : data.chartResults || [];
         let normalized = [];
 
@@ -816,10 +802,8 @@ if (!ok) {
 
   const fetchHandoverStatus = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/api/clients/${clientId}`, {
-        credentials: "include",
-      });
-      const data = await res.json();
+      const res = await fetch(`${BASE_URL}/api/clients/${clientId}`, { credentials: "include" });
+      const data = await res.json().catch(() => ({}));
       setHandoverEnabled(Boolean(data.active));
     } catch (err) {
       console.error("Error fetching handover status:", err);
@@ -828,10 +812,7 @@ if (!ok) {
 
   async function fetchStats() {
     try {
-      const res = await fetch(`${BASE_URL}/api/stats/${clientId}`, {
-        credentials: "include",
-      });
-
+      const res = await fetch(`${BASE_URL}/api/stats/${clientId}`, { credentials: "include" });
       const contentType = res.headers.get("content-type") || "";
       const raw = await res.text();
 
@@ -839,7 +820,6 @@ if (!ok) {
         console.error("Stats API failed:", res.status, raw.slice(0, 300));
         return;
       }
-
       if (!contentType.includes("application/json")) {
         console.error("Stats API returned non-JSON:", contentType, raw.slice(0, 300));
         return;
@@ -857,11 +837,7 @@ if (!ok) {
 
   const handleLogout = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/api/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
-
+      const res = await fetch(`${BASE_URL}/api/logout`, { method: "POST", credentials: "include" });
       if (res.ok) navigate("/");
       else console.error("Logout failed");
     } catch (err) {
@@ -898,10 +874,8 @@ if (!ok) {
 
   async function fetchConversationStats() {
     try {
-      const res = await fetch(`${BASE_URL}/api/conversations/${clientId}`, {
-        credentials: "include",
-      });
-      const data = await res.json();
+      const res = await fetch(`${BASE_URL}/api/conversations/${clientId}`, { credentials: "include" });
+      const data = await res.json().catch(() => ([]));
 
       if (Array.isArray(data)) {
         const total = data.length;
@@ -939,10 +913,8 @@ if (!ok) {
   const viewConvos = async () => {
     try {
       const query = selectedSource === "all" ? "" : `?source=${selectedSource}`;
-      const res = await fetch(`${BASE_URL}/api/conversations/${clientId}${query}`, {
-        credentials: "include",
-      });
-      const data = await res.json();
+      const res = await fetch(`${BASE_URL}/api/conversations/${clientId}${query}`, { credentials: "include" });
+      const data = await res.json().catch(() => ([]));
       setCurrentConvos(data || []);
       setShowConvoModal(true);
     } catch (err) {
@@ -951,7 +923,7 @@ if (!ok) {
   };
 
   useEffect(() => {
-    if (showConvoModal) viewConvos(clientId);
+    if (showConvoModal) viewConvos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSource, showConvoModal]);
 
@@ -1005,7 +977,7 @@ if (!ok) {
           </div>
         </header>
 
-        {/* ✅ NEW: Build Bot Gate */}
+        {/* ✅ Build Bot Gate */}
         <Card className="p-4 border-l-4 border-slate-900">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Bot Setup</CardTitle>
@@ -1019,6 +991,24 @@ if (!ok) {
             <p className="text-sm text-slate-600">
               Build your bot knowledge first. After it’s built, connections (Facebook / Instagram / WhatsApp) are unlocked.
             </p>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="text-xs text-slate-600">Bot type:</div>
+              <select
+                value={botType}
+                onChange={(e) => setBotType(e.target.value)}
+                className="border rounded-lg px-3 py-2 text-sm"
+                title="If your backend only supports default, keep it default."
+              >
+                <option value="default">default</option>
+                <option value="realestate">realestate</option>
+                <option value="restaurant">restaurant</option>
+              </select>
+
+              <div className="text-xs text-slate-500">
+                (If your backend doesn’t use botType yet, keep <b>default</b>.)
+              </div>
+            </div>
 
             {!botReady ? (
               <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
@@ -1052,12 +1042,12 @@ if (!ok) {
             </div>
 
             <div className="text-xs text-slate-500">
-              Tip: For MVP, you can keep all “bot data” (form/paste/file) as fallback to text chunks.
+              Tip: Use Quick Form for “company basics” and Paste Text for long “listings / payment plans / policies”.
             </div>
           </CardContent>
         </Card>
 
-        {/* ✅ NEW: Warnings / Health */}
+        {/* ✅ Warnings / Health */}
         <Card className="p-4 border-l-4 border-slate-700">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">System Warnings</CardTitle>
@@ -1068,7 +1058,7 @@ if (!ok) {
 
           <CardContent className="space-y-3">
             <p className="text-sm text-slate-600">
-              These are simple checks to warn you if something might affect message delivery or response quality.
+              Simple checks to warn you if something might affect message delivery or response quality.
             </p>
 
             {health.warnings?.length ? (
@@ -1135,7 +1125,7 @@ if (!ok) {
               Connect Facebook Page
             </Button>
 
-            {/* ✅ Page Engagement (for pages_read_engagement review) */}
+            {/* Page Engagement */}
             <Card className="p-4 border-l-4 border-purple-600">
               <CardHeader>
                 <CardTitle className="text-lg font-semibold">Page Engagement (Posts & Comments)</CardTitle>
@@ -1143,7 +1133,7 @@ if (!ok) {
 
               <CardContent className="space-y-3">
                 <p className="text-sm text-slate-600">
-                  This section reads your Page posts and comments to help you manage engagement in one dashboard.
+                  Reads your Page posts and comments to manage engagement in one dashboard.
                 </p>
 
                 {!pageId ? (
@@ -1156,9 +1146,7 @@ if (!ok) {
                       </Button>
                     </div>
 
-                    {postsError ? (
-                      <div className="text-xs text-red-600 break-words">Failed to load posts: {postsError}</div>
-                    ) : null}
+                    {postsError ? <div className="text-xs text-red-600 break-words">Failed to load posts: {postsError}</div> : null}
 
                     <div className="space-y-2">
                       {(posts || []).map((p) => (
@@ -1173,12 +1161,7 @@ if (!ok) {
 
                           <div className="mt-2 flex flex-wrap gap-2">
                             {p.permalink_url ? (
-                              <a
-                                className="text-xs underline text-slate-600"
-                                href={p.permalink_url}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
+                              <a className="text-xs underline text-slate-600" href={p.permalink_url} target="_blank" rel="noreferrer">
                                 Open on Facebook
                               </a>
                             ) : null}
@@ -1196,9 +1179,7 @@ if (!ok) {
                           {selectedPostId === p.id ? (
                             <div className="mt-3 space-y-2">
                               {commentsError ? (
-                                <div className="text-xs text-red-600 break-words">
-                                  Failed to load comments: {commentsError}
-                                </div>
+                                <div className="text-xs text-red-600 break-words">Failed to load comments: {commentsError}</div>
                               ) : null}
 
                               {(comments || []).length ? (
@@ -1208,15 +1189,11 @@ if (!ok) {
                                       {c.from?.name ? `From: ${c.from.name}` : "From: (hidden)"} •{" "}
                                       {c.created_time ? new Date(c.created_time).toLocaleString() : "—"}
                                     </div>
-                                    <div className="mt-1 text-slate-800 whitespace-pre-wrap">
-                                      {c.message || "(No text)"}
-                                    </div>
+                                    <div className="mt-1 text-slate-800 whitespace-pre-wrap">{c.message || "(No text)"}</div>
                                   </div>
                                 ))
                               ) : (
-                                <div className="text-sm text-slate-500">
-                                  {commentsLoading ? "Loading..." : "No comments found."}
-                                </div>
+                                <div className="text-sm text-slate-500">{commentsLoading ? "Loading..." : "No comments found."}</div>
                               )}
                             </div>
                           ) : null}
@@ -1238,7 +1215,7 @@ if (!ok) {
                 <div className="min-w-[240px]">
                   <div className="font-semibold text-slate-800">Webhook Subscription</div>
                   <p className="text-xs text-slate-600 mt-1">
-                    This proves your app uses <b>pages_manage_metadata</b> to subscribe the Page to events and receive webhooks.
+                    Proves <b>pages_manage_metadata</b> to subscribe the Page to events and receive webhooks.
                   </p>
                 </div>
 
@@ -1274,7 +1251,15 @@ if (!ok) {
 
                   <div className="font-medium mt-2">
                     {(webhookStatus.webhookFields || []).length ? (
-                      showMessagesOnly ? (webhookStatus.webhookFields.includes("messages") ? "messages" : "—") : webhookStatus.webhookFields.join(", ")
+                      showMessagesOnly ? (
+                        webhookStatus.webhookFields.includes("messages") ? (
+                          "messages"
+                        ) : (
+                          "—"
+                        )
+                      ) : (
+                        webhookStatus.webhookFields.join(", ")
+                      )
                     ) : (
                       "—"
                     )}
@@ -1286,7 +1271,7 @@ if (!ok) {
                     </Button>
 
                     <div className="text-xs text-slate-600">
-                      Test tip: add a <b>comment</b> on your Page post, then click <b>Refresh Status</b>. (Requires <b>feed</b>)
+                      Test tip: add a <b>comment</b> on your Page post, then click <b>Refresh Status</b>.
                     </div>
                   </div>
 
@@ -1305,20 +1290,16 @@ if (!ok) {
 
           <CardContent className="space-y-3">
             {!botReady ? (
-              <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
-                🔒 {connectDisabledReason}
-              </div>
+              <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">🔒 {connectDisabledReason}</div>
             ) : null}
 
             <p className="text-sm text-slate-600">
-              This section proves <b>instagram_basic</b> and <b>instagram_manage_messages</b> using dashboard actions.
+              Proves <b>instagram_basic</b> and <b>instagram_manage_messages</b> using dashboard actions.
             </p>
 
             {ig.igId || ig.igUsername || ig.igProfilePicUrl ? (
               <div className="flex items-center gap-3 border rounded-lg bg-white p-3">
-                {ig.igProfilePicUrl ? (
-                  <img src={ig.igProfilePicUrl} alt="IG profile" className="w-12 h-12 rounded-full border" />
-                ) : null}
+                {ig.igProfilePicUrl ? <img src={ig.igProfilePicUrl} alt="IG profile" className="w-12 h-12 rounded-full border" /> : null}
 
                 <div className="flex-1">
                   <div className="text-sm font-medium text-slate-900">Instagram: @{ig.igUsername || "unknown"}</div>
@@ -1332,9 +1313,7 @@ if (!ok) {
                 </Button>
               </div>
             ) : (
-              <div className="text-sm text-slate-500">
-                No Instagram professional account detected on this Page yet.
-              </div>
+              <div className="text-sm text-slate-500">No Instagram professional account detected on this Page yet.</div>
             )}
 
             <div className="flex gap-2 flex-wrap">
@@ -1381,9 +1360,7 @@ if (!ok) {
                       Media ID: {m.id} • {m.media_type}
                     </div>
                     {m.media_url ? <img src={m.media_url} alt="media" className="mt-2 max-h-64 rounded border" /> : null}
-                    <div className="text-sm text-slate-800 mt-2 whitespace-pre-wrap">
-                      {m.caption ? m.caption.slice(0, 160) : "(No caption)"}
-                    </div>
+                    <div className="text-sm text-slate-800 mt-2 whitespace-pre-wrap">{m.caption ? m.caption.slice(0, 160) : "(No caption)"}</div>
                     {m.permalink ? (
                       <a className="text-xs underline text-slate-600" href={m.permalink} target="_blank" rel="noreferrer">
                         Open on Instagram
@@ -1398,9 +1375,7 @@ if (!ok) {
             <div className="border rounded-lg bg-white p-3 space-y-2">
               <div className="text-sm font-medium text-slate-800">Send a DM (Review Proof)</div>
 
-              <div className="text-xs text-slate-500">
-                Tip: If you leave recipient empty, server uses <b>lastIgSenderId</b>.
-              </div>
+              <div className="text-xs text-slate-500">Tip: If recipient empty, server uses <b>lastIgSenderId</b>.</div>
 
               <input
                 value={igDmRecipientId}
@@ -1423,14 +1398,10 @@ if (!ok) {
                   {igSendingDm ? "Sending..." : "Send DM"}
                 </Button>
 
-                {igDmResult?.ok ? (
-                  <div className="text-xs text-green-700">Sent ✅ (recipient used: {igDmResult.usedRecipientId || "—"})</div>
-                ) : null}
+                {igDmResult?.ok ? <div className="text-xs text-green-700">Sent ✅</div> : null}
               </div>
 
-              {igDmResult ? (
-                <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">{JSON.stringify(igDmResult, null, 2)}</pre>
-              ) : null}
+              {igDmResult ? <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">{JSON.stringify(igDmResult, null, 2)}</pre> : null}
             </div>
           </CardContent>
         </Card>
@@ -1442,14 +1413,10 @@ if (!ok) {
           </CardHeader>
           <CardContent className="space-y-3">
             {!botReady ? (
-              <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
-                🔒 {connectDisabledReason}
-              </div>
+              <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">🔒 {connectDisabledReason}</div>
             ) : null}
 
-            <p className="text-sm text-slate-600">
-              Connect WhatsApp via Meta Embedded Signup. This is used for WhatsApp messaging and template management.
-            </p>
+            <p className="text-sm text-slate-600">Connect WhatsApp via Meta Embedded Signup.</p>
 
             {wa.connected ? (
               <div className="border rounded-lg bg-white p-3 text-sm">
@@ -1487,7 +1454,7 @@ if (!ok) {
               <div className="text-sm font-medium text-slate-800">Send a WhatsApp Test Message (Review Proof)</div>
 
               <div className="text-xs text-slate-500">
-                Tip: WhatsApp may require the user to message you first (24h window). For testing, send “Hi” to the business number, then run this.
+                Tip: WhatsApp may require user to message you first (24h window). Send “Hi” to the business number, then run this.
               </div>
 
               <input
@@ -1514,9 +1481,7 @@ if (!ok) {
                 {waTestResult?.ok ? <div className="text-xs text-green-700">Sent ✅</div> : null}
               </div>
 
-              {waTestResult ? (
-                <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">{JSON.stringify(waTestResult, null, 2)}</pre>
-              ) : null}
+              {waTestResult ? <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">{JSON.stringify(waTestResult, null, 2)}</pre> : null}
             </div>
           </CardContent>
         </Card>
@@ -1641,11 +1606,7 @@ if (!ok) {
           </div>
         </Card>
 
-        <input
-          value={testPsid}
-          onChange={(e) => setTestPsid(e.target.value)}
-          className="border rounded p-2 text-sm w-full"
-        />
+        <input value={testPsid} onChange={(e) => setTestPsid(e.target.value)} className="border rounded p-2 text-sm w-full" />
         <Button onClick={() => sendReviewTest(pageId, testPsid)} disabled={!botReady} title={!botReady ? connectDisabledReason : ""}>
           Send test message (Meta Send API)
         </Button>
@@ -1671,13 +1632,13 @@ if (!ok) {
                 <option value="whatsapp">WhatsApp</option>
               </select>
 
-              <Button className="w-full sm:w-auto" onClick={() => viewConvos(clientId)}>
+              <Button className="w-full sm:w-auto" onClick={viewConvos}>
                 View All
               </Button>
             </div>
           </div>
 
-          <div className="text-sm text-slate-500">Click "View All" to open the conversations modal with full list and export options.</div>
+          <div className="text-sm text-slate-500">Click "View All" to open the conversations modal with export options.</div>
         </Card>
 
         {/* Agent Handover */}
@@ -1695,10 +1656,8 @@ if (!ok) {
                   try {
                     if (!clientId) return;
 
-                    const res = await fetch(`${BASE_URL}/api/clients/${clientId}`, {
-                      credentials: "include",
-                    });
-                    const client = await res.json();
+                    const res = await fetch(`${BASE_URL}/api/clients/${clientId}`, { credentials: "include" });
+                    const client = await res.json().catch(() => ({}));
 
                     const newActive = !client.active;
 
@@ -1740,6 +1699,15 @@ if (!ok) {
               Choose how you want to add your data. We’ll convert it into knowledge chunks to power your chatbot.
             </div>
 
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="text-xs text-slate-600">Bot type:</div>
+              <select value={botType} onChange={(e) => setBotType(e.target.value)} className="border rounded-lg px-3 py-2 text-sm">
+                <option value="default">default</option>
+                <option value="realestate">realestate</option>
+                <option value="restaurant">restaurant</option>
+              </select>
+            </div>
+
             <div className="flex gap-2 flex-wrap">
               <Button variant={buildMode === "form" ? "default" : "outline"} onClick={() => setBuildMode("form")}>
                 Quick Form
@@ -1755,17 +1723,14 @@ if (!ok) {
             {buildMode !== "form" ? (
               <div className="space-y-2">
                 <label className="text-xs text-slate-600">Content type</label>
-                <select
-                  value={rawSection}
-                  onChange={(e) => setRawSection(e.target.value)}
-                  className="border rounded-lg px-3 py-2 text-sm w-full"
-                >
+                <select value={rawSection} onChange={(e) => setRawSection(e.target.value)} className="border rounded-lg px-3 py-2 text-sm w-full">
                   <option value="mixed">Mixed / not sure</option>
                   <option value="faqs">FAQs</option>
                   <option value="listings">Listings / properties</option>
                   <option value="offers">Services / offers</option>
-                  <option value="hours">Hours & contact</option>
+                  <option value="paymentPlans">Payment plans</option>
                   <option value="policies">Policies</option>
+                  <option value="hours">Hours & contact</option>
                 </select>
               </div>
             ) : null}
@@ -1809,6 +1774,24 @@ if (!ok) {
                   className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
                 />
                 <textarea
+                  value={botForm.listingsSummary}
+                  onChange={(e) => setBotForm((p) => ({ ...p, listingsSummary: e.target.value }))}
+                  placeholder="Listings summary (optional: areas, types, price ranges, examples)"
+                  className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
+                />
+                <textarea
+                  value={botForm.paymentPlans}
+                  onChange={(e) => setBotForm((p) => ({ ...p, paymentPlans: e.target.value }))}
+                  placeholder="Payment plans (optional: downpayment %, years, developer names, notes)"
+                  className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
+                />
+                <textarea
+                  value={botForm.policies}
+                  onChange={(e) => setBotForm((p) => ({ ...p, policies: e.target.value }))}
+                  placeholder="Policies (optional: commission, viewing rules, docs, refunds)"
+                  className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
+                />
+                <textarea
                   value={botForm.faqs}
                   onChange={(e) => setBotForm((p) => ({ ...p, faqs: e.target.value }))}
                   placeholder="FAQs (one per line or paste them)"
@@ -1820,12 +1803,12 @@ if (!ok) {
             {buildMode === "paste" ? (
               <div className="space-y-2">
                 <div className="text-xs text-slate-500">
-                  Tip: You can add headings like <b>## FAQs</b>, <b>## Hours</b>, <b>## Services</b> — we’ll split it.
+                  Tip: Use headings: <b>## Listings</b>, <b>## Payment Plans</b>, <b>## FAQs</b>, <b>## Policies</b>.
                 </div>
                 <textarea
                   value={rawText}
                   onChange={(e) => setRawText(e.target.value)}
-                  placeholder="Paste your menu / FAQ / listings here..."
+                  placeholder="Paste your listings / payment plans / FAQ / policies here..."
                   className="border rounded p-2 text-sm w-full min-h-[200px]"
                 />
               </div>
@@ -1833,21 +1816,14 @@ if (!ok) {
 
             {buildMode === "upload" ? (
               <div className="space-y-2">
-                <div className="text-xs text-slate-500">Upload a .txt file (menu, listings, FAQ, etc.).</div>
-                <input
-                  type="file"
-                  accept=".txt,text/plain"
-                  onChange={(e) => setRawFile(e.target.files?.[0] || null)}
-                  className="text-sm"
-                />
+                <div className="text-xs text-slate-500">Upload a .txt file (listings, FAQ, policies, etc.).</div>
+                <input type="file" accept=".txt,text/plain" onChange={(e) => setRawFile(e.target.files?.[0] || null)} className="text-sm" />
                 {rawFile ? <div className="text-xs text-slate-600">Selected: {rawFile.name}</div> : null}
               </div>
             ) : null}
 
             {buildError ? (
-              <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 whitespace-pre-wrap">
-                {buildError}
-              </div>
+              <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 whitespace-pre-wrap">{buildError}</div>
             ) : null}
           </div>
 
@@ -1940,11 +1916,7 @@ if (!ok) {
                 Full
               </Button>
 
-              <Button
-                size="sm"
-                variant={payloadViewMode === "messages" ? "default" : "outline"}
-                onClick={() => setPayloadViewMode("messages")}
-              >
+              <Button size="sm" variant={payloadViewMode === "messages" ? "default" : "outline"} onClick={() => setPayloadViewMode("messages")}>
                 Messages only
               </Button>
             </div>
@@ -1959,9 +1931,7 @@ if (!ok) {
                 const dataToShow =
                   payloadViewMode === "messages" ? messagesOnly || { note: "No message events found in this payload." } : full;
 
-                return (
-                  <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">{JSON.stringify(dataToShow, null, 2)}</pre>
-                );
+                return <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">{JSON.stringify(dataToShow, null, 2)}</pre>;
               })()
             ) : (
               <div className="text-slate-500">No payload available yet. Trigger an event then try again.</div>
