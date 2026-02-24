@@ -365,18 +365,20 @@ export default function ClientDashboard() {
       // C) Fallback: your existing rebuild endpoint
       //    This is the one you mentioned before:
       //    https://yourdomain.com/api/knowledge/rebuild/CLIENT_ID
-      if (!ok) {
-        const res = await fetch(`${BASE_URL}/api/knowledge/rebuild/${encodeURIComponent(clientId)}`, {
-          method: "POST",
-          credentials: "include",
-        });
+     // C) Fallback: your existing rebuild endpoint
+if (!ok) {
+  const res = await fetch(`${BASE_URL}/api/knowledge/rebuild/${encodeURIComponent(clientId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ botType: "default" }),
+  });
 
-        const json = await res.json().catch(() => ({}));
-        lastJson = json;
+  const json = await res.json().catch(() => ({}));
+  lastJson = json;
 
-        // assume success if res.ok (your endpoint may return {ok:true} or {success:true})
-        if (res.ok) ok = Boolean(json.ok ?? json.success ?? true);
-      }
+  if (res.ok) ok = Boolean(json.ok ?? json.success ?? true);
+}
 
       if (!ok) {
         setBuildError(
