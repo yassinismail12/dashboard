@@ -368,13 +368,12 @@ export default function ClientDashboard() {
      // C) Fallback: your existing rebuild endpoint
 // C) Fallback: your existing rebuild endpoint
 if (!ok) {
-  const res = await fetch(`${BASE_URL}/api/knowledge/rebuild/${encodeURIComponent(clientId)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ botType: "default" }),
-  });
-
+ const res = await fetch(`${BASE_URL}/api/knowledge/rebuild/${encodeURIComponent(clientId)}`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "include",
+  body: JSON.stringify({ botType: "default" }),
+});
   const json = await res.json().catch(() => ({}));
   lastJson = json;
 
