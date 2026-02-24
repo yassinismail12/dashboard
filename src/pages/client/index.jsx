@@ -366,6 +366,7 @@ export default function ClientDashboard() {
       //    This is the one you mentioned before:
       //    https://yourdomain.com/api/knowledge/rebuild/CLIENT_ID
      // C) Fallback: your existing rebuild endpoint
+// C) Fallback: your existing rebuild endpoint
 if (!ok) {
   const res = await fetch(`${BASE_URL}/api/knowledge/rebuild/${encodeURIComponent(clientId)}`, {
     method: "POST",
@@ -379,6 +380,8 @@ if (!ok) {
 
   if (res.ok) ok = Boolean(json.ok ?? json.success ?? true);
 }
+
+
 
       if (!ok) {
         setBuildError(
