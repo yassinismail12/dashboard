@@ -133,7 +133,8 @@ export default function ClientDashboard() {
   // ✅ Bot type (lets you choose chunking paths on backend)
   // If your backend only supports "default", keep it "default".
   const [botType, setBotType] = useState("default"); // "default" | "restaurant" | "realestate" (optional)
-
+const [coverageWarnings, setCoverageWarnings] = useState([]);
+const [sectionsPresent, setSectionsPresent] = useState([]);
   // ✅ Quick form fields
   // If you add fields here, update backend formToText() to include them (important)
   const [botForm, setBotForm] = useState({
@@ -216,7 +217,8 @@ export default function ClientDashboard() {
       if (r1.ok) {
         const v = Number(c1?.knowledgeVersion || c1?.knowledge?.version || 0) || 0;
         const status = String(c1?.knowledgeStatus || c1?.knowledge?.status || c1?.botStatus || "").trim();
-
+setCoverageWarnings(Array.isArray(c1?.coverageWarnings) ? c1.coverageWarnings : []);
+setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : []);
         const built =
           Boolean(c1?.botBuilt) ||
           Boolean(c1?.knowledgeReady) ||
@@ -239,7 +241,8 @@ export default function ClientDashboard() {
       if (r2.ok && j2) {
         const v = Number(j2?.version || j2?.knowledgeVersion || 0) || 0;
         const status = String(j2?.status || j2?.knowledgeStatus || "").trim();
-        const built = status === "ready" || v >= 1 || Boolean(j2?.ready);
+        const built =
+  status === "ready" || Boolean(c1?.botBuilt) || Boolean(c1?.knowledgeReady);
 
         setKnowledgeVersion(v);
         setKnowledgeStatusRaw(status || (built ? "ready" : "empty"));
@@ -946,12 +949,14 @@ export default function ClientDashboard() {
     if (!clientId) return "checking...";
     if (knowledgeStatusRaw === "ready" || botReady) return "ready";
     if (knowledgeStatusRaw === "unknown") return "unknown";
+    if (knowledgeStatusRaw === "needs_review") return "needs review";
     return "not built";
   };
 
   const buildBadgeClass = () => {
     if (knowledgeStatusRaw === "ready" || botReady) return "bg-green-100 text-green-700 border-green-200";
     if (knowledgeStatusRaw === "unknown") return "bg-yellow-100 text-yellow-700 border-yellow-200";
+    if (knowledgeStatusRaw === "needs_review") return "bg-orange-100 text-orange-700 border-orange-200";
     return "bg-red-100 text-red-700 border-red-200";
   };
 
