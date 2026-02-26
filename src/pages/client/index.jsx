@@ -94,7 +94,7 @@ export default function ClientDashboard() {
   const [clientId, setClientId] = useState(null);
 
   const [handoverEnabled, setHandoverEnabled] = useState(false);
-
+const [replaceOldKnowledge, setReplaceOldKnowledge] = useState(true); // default ON to prevent mixing
   const [pageName, setPageName] = useState("");
   const [pageId, setPageId] = useState("");
 
@@ -268,144 +268,150 @@ export default function ClientDashboard() {
   };
 
   // ✅ Build / Rebuild knowledge
-  const submitBuild = async () => {
-    try {
-      if (!clientId) return;
-      setBuildError("");
-      setBuildSuccess("");
-      setBuildLoading(true);
+ const submitBuild = async () => {
+  try {
+    if (!clientId) return;
+    setBuildError("");
+    setBuildSuccess("");
+    setBuildLoading(true);
 
-      // Validation
-      if (buildMode === "form") {
-        const hasAny =
-          botForm.businessName.trim() ||
-          botForm.businessType.trim() ||
-          botForm.cityArea.trim() ||
-          botForm.hours.trim() ||
-          botForm.phoneWhatsapp.trim() ||
-          botForm.services.trim() ||
-          botForm.faqs.trim() ||
-          botForm.listingsSummary.trim() ||
-          botForm.paymentPlans.trim() ||
-          botForm.policies.trim();
+    // Validation
+    if (buildMode === "form") {
+      const hasAny =
+        botForm.businessName.trim() ||
+        botForm.businessType.trim() ||
+        botForm.cityArea.trim() ||
+        botForm.hours.trim() ||
+        botForm.phoneWhatsapp.trim() ||
+        botForm.services.trim() ||
+        botForm.faqs.trim() ||
+        botForm.listingsSummary.trim() ||
+        botForm.paymentPlans.trim() ||
+        botForm.policies.trim();
 
-        if (!hasAny) {
-          setBuildError("Please fill at least one field to build your bot.");
-          return;
-        }
-      }
-
-      if (buildMode === "paste" && !rawText.trim()) {
-        setBuildError("Paste your text first.");
+      if (!hasAny) {
+        setBuildError("Please fill at least one field to build your bot.");
         return;
       }
+    }
 
-      if (buildMode === "upload" && !rawFile) {
-        setBuildError("Upload a .txt file first.");
-        return;
-      }
+    if (buildMode === "paste" && !rawText.trim()) {
+      setBuildError("Paste your text first.");
+      return;
+    }
 
-      let ok = false;
-      let lastJson = null;
+    if (buildMode === "upload" && !rawFile) {
+      setBuildError("Upload a .txt file first.");
+      return;
+    }
 
-      // A) POST /api/knowledge/build (JSON)
-      if (buildMode === "form" || buildMode === "paste") {
-        const payload =
-          buildMode === "form"
-            ? {
-                clientId,
-                botType: BOT_TYPE,
-                inputType: "form",
-                data: {
-                  businessName: botForm.businessName,
-                  businessType: botForm.businessType,
-                  cityArea: botForm.cityArea,
-                  hours: botForm.hours,
-                  phoneWhatsapp: botForm.phoneWhatsapp,
-                  services: botForm.services,
-                  faqs: botForm.faqs,
-                  listingsSummary: botForm.listingsSummary,
-                  paymentPlans: botForm.paymentPlans,
-                  policies: botForm.policies,
-                },
-              }
-            : {
-                clientId,
-                botType: BOT_TYPE,
-                inputType: "text",
-                section: rawSection,
-                text: rawText,
-              };
+    let ok = false;
+    let lastJson = null;
 
-        try {
-          const res = await fetch(`${BASE_URL}/api/knowledge/build`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify(payload),
-          });
+    // A) POST /api/knowledge/build (JSON)
+    if (buildMode === "form" || buildMode === "paste") {
+      const payload =
+        buildMode === "form"
+          ? {
+              clientId,
+              botType: BOT_TYPE,
+              inputType: "form",
+              replace: Boolean(replaceOldKnowledge), // ✅ NEW
+              data: {
+                businessName: botForm.businessName,
+                businessType: botForm.businessType,
+                cityArea: botForm.cityArea,
+                hours: botForm.hours,
+                phoneWhatsapp: botForm.phoneWhatsapp,
+                services: botForm.services,
+                faqs: botForm.faqs,
+                listingsSummary: botForm.listingsSummary,
+                paymentPlans: botForm.paymentPlans,
+                policies: botForm.policies,
+              },
+            }
+          : {
+              clientId,
+              botType: BOT_TYPE,
+              inputType: "text",
+              replace: Boolean(replaceOldKnowledge), // ✅ NEW
+              section: rawSection,
+              text: rawText,
+            };
 
-          const json = await res.json().catch(() => ({}));
-          lastJson = json;
-          if (res.ok && (json.ok || json.success || json.status === "ok")) ok = true;
-        } catch {
-          // ignore and try fallback
-        }
-      }
-
-      // B) POST /api/knowledge/upload (multipart)
-      if (!ok && buildMode === "upload") {
-        try {
-          const fd = new FormData();
-          fd.append("clientId", clientId);
-          fd.append("section", rawSection);
-          fd.append("botType", BOT_TYPE);
-          fd.append("file", rawFile);
-
-          const res = await fetch(`${BASE_URL}/api/knowledge/upload`, {
-            method: "POST",
-            credentials: "include",
-            body: fd,
-          });
-
-          const json = await res.json().catch(() => ({}));
-          lastJson = json;
-          if (res.ok && (json.ok || json.success || json.status === "ok")) ok = true;
-        } catch {
-          // ignore and try fallback
-        }
-      }
-
-      // C) Fallback: rebuild endpoint
-      if (!ok) {
-        const res = await fetch(`${BASE_URL}/api/knowledge/rebuild/${encodeURIComponent(clientId)}`, {
+      try {
+        const res = await fetch(`${BASE_URL}/api/knowledge/build`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ botType: BOT_TYPE }),
+          body: JSON.stringify(payload),
         });
 
         const json = await res.json().catch(() => ({}));
         lastJson = json;
-        if (res.ok) ok = Boolean(json.ok ?? json.success ?? true);
+        if (res.ok && (json.ok || json.success || json.status === "ok")) ok = true;
+      } catch {
+        // ignore and try fallback
       }
-
-      if (!ok) {
-        setBuildError(`Build failed. Server response:\n${JSON.stringify(lastJson || {}, null, 2).slice(0, 1200)}`);
-        return;
-      }
-
-      setBuildSuccess("✅ Bot built successfully. Connections are now unlocked.");
-      setBuildOpen(false);
-
-      await fetchKnowledgeGate();
-      await fetchClientHealth();
-    } catch (e) {
-      setBuildError(e?.message || "Build failed.");
-    } finally {
-      setBuildLoading(false);
     }
-  };
+
+    // B) POST /api/knowledge/upload (multipart)
+    if (!ok && buildMode === "upload") {
+      try {
+        const fd = new FormData();
+        fd.append("clientId", clientId);
+        fd.append("section", rawSection);
+        fd.append("botType", BOT_TYPE);
+        fd.append("replace", String(Boolean(replaceOldKnowledge))); // ✅ NEW
+        fd.append("file", rawFile);
+
+        const res = await fetch(`${BASE_URL}/api/knowledge/upload`, {
+          method: "POST",
+          credentials: "include",
+          body: fd,
+        });
+
+        const json = await res.json().catch(() => ({}));
+        lastJson = json;
+        if (res.ok && (json.ok || json.success || json.status === "ok")) ok = true;
+      } catch {
+        // ignore and try fallback
+      }
+    }
+
+    // C) Fallback: rebuild endpoint
+    if (!ok) {
+      const res = await fetch(`${BASE_URL}/api/knowledge/rebuild/${encodeURIComponent(clientId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          botType: BOT_TYPE,
+          replace: Boolean(replaceOldKnowledge), // ✅ NEW
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      lastJson = json;
+      if (res.ok) ok = Boolean(json.ok ?? json.success ?? true);
+    }
+
+    if (!ok) {
+      setBuildError(`Build failed. Server response:\n${JSON.stringify(lastJson || {}, null, 2).slice(0, 1200)}`);
+      return;
+    }
+
+    setBuildSuccess("✅ Bot built successfully. Connections are now unlocked.");
+    setBuildOpen(false);
+
+    await fetchKnowledgeGate();
+    await fetchClientHealth();
+  } catch (e) {
+    setBuildError(e?.message || "Build failed.");
+  } finally {
+    setBuildLoading(false);
+  }
+};
 
   // ✅ Fetch warnings/health
   const fetchClientHealth = async () => {
@@ -1017,7 +1023,23 @@ export default function ClientDashboard() {
                 ✅ Bot is built. Connections are unlocked.
               </div>
             )}
+<div className="flex items-center justify-between border rounded-lg p-3 bg-slate-50">
+  <div>
+    <div className="text-sm font-medium text-slate-800">Replace old knowledge</div>
+    <div className="text-xs text-slate-600">
+      If ON, we wipe old saved files + chunks first (prevents pharmacy inheriting yesterday’s real-estate data).
+    </div>
+  </div>
 
+  <label className="flex items-center gap-2 text-sm">
+    <input
+      type="checkbox"
+      checked={replaceOldKnowledge}
+      onChange={(e) => setReplaceOldKnowledge(e.target.checked)}
+    />
+    ON
+  </label>
+</div>
             {/* ✅ Coverage info (this is what should be shown instead of botType select) */}
             {botReady ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
