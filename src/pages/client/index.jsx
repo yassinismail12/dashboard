@@ -14,16 +14,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
  * - Calls (best-effort):
  *   - GET /api/clients/:clientId         (preferred, if exists)
  *   - GET /api/knowledge/status?clientId (fallback)
- *   - POST /api/knowledge/build          (preferred)
- *   - POST /api/knowledge/upload         (preferred)
+ *   - POST /api/knowledge/build
+ *   - POST /api/knowledge/upload
  *   - POST /api/knowledge/rebuild/:id    (fallback)
  *
  * ✅ IMPORTANT:
- * - If you add new fields in Quick Form, you must ALSO update backend `formToText()` to include them,
- *   otherwise they’ll be saved to client.files/profile but won’t be chunked as expected.
+ * - If you add new fields in Quick Form, you must ALSO update backend `formToMixedText()` to include them,
+ *   otherwise they’ll be saved to client.files but won’t be chunked as expected.
  */
 
 const BASE_URL = "https://serverowned.onrender.com";
+
+// ✅ Keep botType internal & automatic (no UI select)
+// If later you truly need multi-bot behavior, re-add a select ONLY after the backend uses it meaningfully.
+const BOT_TYPE = "default";
 
 export default function ClientDashboard() {
   const [stats, setStats] = useState({
@@ -130,13 +134,10 @@ export default function ClientDashboard() {
   const [buildError, setBuildError] = useState("");
   const [buildSuccess, setBuildSuccess] = useState("");
 
-  // ✅ Bot type (lets you choose chunking paths on backend)
-  // If your backend only supports "default", keep it "default".
-  const [botType, setBotType] = useState("default"); // "default" | "restaurant" | "realestate" (optional)
-const [coverageWarnings, setCoverageWarnings] = useState([]);
-const [sectionsPresent, setSectionsPresent] = useState([]);
+  const [coverageWarnings, setCoverageWarnings] = useState([]);
+  const [sectionsPresent, setSectionsPresent] = useState([]);
+
   // ✅ Quick form fields
-  // If you add fields here, update backend formToText() to include them (important)
   const [botForm, setBotForm] = useState({
     businessName: "",
     businessType: "",
@@ -145,7 +146,6 @@ const [sectionsPresent, setSectionsPresent] = useState([]);
     phoneWhatsapp: "",
     services: "",
     faqs: "",
-    // NEW (recommended for real estate)
     listingsSummary: "",
     paymentPlans: "",
     policies: "",
@@ -162,7 +162,7 @@ const [sectionsPresent, setSectionsPresent] = useState([]);
     return "";
   }, [clientId, botReady]);
 
-  // Clear build messages when modal/mode changes (prevents “stale error”)
+  // Clear build messages when modal/mode changes (prevents stale error)
   useEffect(() => {
     setBuildError("");
     setBuildSuccess("");
@@ -217,12 +217,15 @@ const [sectionsPresent, setSectionsPresent] = useState([]);
       if (r1.ok) {
         const v = Number(c1?.knowledgeVersion || c1?.knowledge?.version || 0) || 0;
         const status = String(c1?.knowledgeStatus || c1?.knowledge?.status || c1?.botStatus || "").trim();
-setCoverageWarnings(Array.isArray(c1?.coverageWarnings) ? c1.coverageWarnings : []);
-setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : []);
+
+        setCoverageWarnings(Array.isArray(c1?.coverageWarnings) ? c1.coverageWarnings : []);
+        setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : []);
+
         const built =
           Boolean(c1?.botBuilt) ||
           Boolean(c1?.knowledgeReady) ||
           status === "ready" ||
+          status === "needs_review" ||
           v >= 1;
 
         setKnowledgeVersion(v);
@@ -233,7 +236,7 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
 
       // 2) Fallback endpoint
       const r2 = await fetch(
-        `${BASE_URL}/api/knowledge/status?clientId=${encodeURIComponent(clientId)}&botType=${encodeURIComponent(botType)}`,
+        `${BASE_URL}/api/knowledge/status?clientId=${encodeURIComponent(clientId)}&botType=${encodeURIComponent(BOT_TYPE)}`,
         { credentials: "include" }
       );
       const j2 = await r2.json().catch(() => ({}));
@@ -241,20 +244,26 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
       if (r2.ok && j2) {
         const v = Number(j2?.version || j2?.knowledgeVersion || 0) || 0;
         const status = String(j2?.status || j2?.knowledgeStatus || "").trim();
-        const built =
-  status === "ready" || Boolean(c1?.botBuilt) || Boolean(c1?.knowledgeReady);
+        const built = status === "ready" || status === "needs_review" || v >= 1;
 
         setKnowledgeVersion(v);
         setKnowledgeStatusRaw(status || (built ? "ready" : "empty"));
         setBotReady(built);
+
+        setCoverageWarnings(Array.isArray(j2?.coverageWarnings) ? j2.coverageWarnings : []);
+        setSectionsPresent(Array.isArray(j2?.sectionsPresent) ? j2.sectionsPresent : []);
       } else {
         setBotReady(false);
         setKnowledgeStatusRaw("unknown");
+        setCoverageWarnings([]);
+        setSectionsPresent([]);
       }
     } catch (e) {
       console.error("fetchKnowledgeGate error:", e);
       setBotReady(false);
       setKnowledgeStatusRaw("unknown");
+      setCoverageWarnings([]);
+      setSectionsPresent([]);
     }
   };
 
@@ -305,7 +314,7 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
           buildMode === "form"
             ? {
                 clientId,
-                botType,
+                botType: BOT_TYPE,
                 inputType: "form",
                 data: {
                   businessName: botForm.businessName,
@@ -315,7 +324,6 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
                   phoneWhatsapp: botForm.phoneWhatsapp,
                   services: botForm.services,
                   faqs: botForm.faqs,
-                  // NEW
                   listingsSummary: botForm.listingsSummary,
                   paymentPlans: botForm.paymentPlans,
                   policies: botForm.policies,
@@ -323,7 +331,7 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
               }
             : {
                 clientId,
-                botType,
+                botType: BOT_TYPE,
                 inputType: "text",
                 section: rawSection,
                 text: rawText,
@@ -351,7 +359,7 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
           const fd = new FormData();
           fd.append("clientId", clientId);
           fd.append("section", rawSection);
-          fd.append("botType", botType);
+          fd.append("botType", BOT_TYPE);
           fd.append("file", rawFile);
 
           const res = await fetch(`${BASE_URL}/api/knowledge/upload`, {
@@ -374,7 +382,7 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ botType }),
+          body: JSON.stringify({ botType: BOT_TYPE }),
         });
 
         const json = await res.json().catch(() => ({}));
@@ -383,9 +391,7 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
       }
 
       if (!ok) {
-        setBuildError(
-          `Build failed. Server response:\n${JSON.stringify(lastJson || {}, null, 2).slice(0, 1200)}`
-        );
+        setBuildError(`Build failed. Server response:\n${JSON.stringify(lastJson || {}, null, 2).slice(0, 1200)}`);
         return;
       }
 
@@ -461,6 +467,10 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
         ...prev,
         businessName: prev.businessName || data?.businessName || data?.PAGE_NAME || "",
       }));
+
+      // Also hydrate coverage if present
+      setCoverageWarnings(Array.isArray(data?.coverageWarnings) ? data.coverageWarnings : []);
+      setSectionsPresent(Array.isArray(data?.sectionsPresent) ? data.sectionsPresent : []);
     } catch (err) {
       console.error("Error fetching client page connection:", err);
     }
@@ -994,26 +1004,9 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
 
           <CardContent className="space-y-3">
             <p className="text-sm text-slate-600">
-              Build your bot knowledge first. After it’s built, connections (Facebook / Instagram / WhatsApp) are unlocked.
+              Add your business data once. We’ll convert it into knowledge chunks to power your chatbot. After it’s built,
+              connections (Facebook / Instagram / WhatsApp) are unlocked.
             </p>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="text-xs text-slate-600">Bot type:</div>
-              <select
-                value={botType}
-                onChange={(e) => setBotType(e.target.value)}
-                className="border rounded-lg px-3 py-2 text-sm"
-                title="If your backend only supports default, keep it default."
-              >
-                <option value="default">default</option>
-                <option value="realestate">realestate</option>
-                <option value="restaurant">restaurant</option>
-              </select>
-
-              <div className="text-xs text-slate-500">
-                (If your backend doesn’t use botType yet, keep <b>default</b>.)
-              </div>
-            </div>
 
             {!botReady ? (
               <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
@@ -1024,6 +1017,36 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
                 ✅ Bot is built. Connections are unlocked.
               </div>
             )}
+
+            {/* ✅ Coverage info (this is what should be shown instead of botType select) */}
+            {botReady ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="border rounded-lg bg-white p-3">
+                  <div className="text-xs text-slate-500">Sections detected</div>
+                  <div className="text-sm font-medium text-slate-800 mt-1">
+                    {sectionsPresent?.length ? sectionsPresent.join(", ") : "—"}
+                  </div>
+                </div>
+
+                <div className="border rounded-lg bg-white p-3">
+                  <div className="text-xs text-slate-500">Coverage</div>
+                  {coverageWarnings?.length ? (
+                    <div className="mt-2 space-y-1">
+                      {coverageWarnings.slice(0, 4).map((w, i) => (
+                        <div key={i} className="text-xs text-orange-700">
+                          ⚠️ {w}
+                        </div>
+                      ))}
+                      {coverageWarnings.length > 4 ? (
+                        <div className="text-xs text-slate-500">+{coverageWarnings.length - 4} more…</div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="text-sm font-medium text-green-700 mt-1">✅ Looks good</div>
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             {buildSuccess ? (
               <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3">{buildSuccess}</div>
@@ -1047,7 +1070,8 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
             </div>
 
             <div className="text-xs text-slate-500">
-              Tip: Use Quick Form for “company basics” and Paste Text for long “listings / payment plans / policies”.
+              Tip: Quick Form for basics. Paste Text / Upload for long data (prices, services, FAQ, policies, listings).
+              Use headings like <b>## FAQs</b> or separators like <b>---</b> between items.
             </div>
           </CardContent>
         </Card>
@@ -1704,15 +1728,6 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
               Choose how you want to add your data. We’ll convert it into knowledge chunks to power your chatbot.
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="text-xs text-slate-600">Bot type:</div>
-              <select value={botType} onChange={(e) => setBotType(e.target.value)} className="border rounded-lg px-3 py-2 text-sm">
-                <option value="default">default</option>
-                <option value="realestate">realestate</option>
-                <option value="restaurant">restaurant</option>
-              </select>
-            </div>
-
             <div className="flex gap-2 flex-wrap">
               <Button variant={buildMode === "form" ? "default" : "outline"} onClick={() => setBuildMode("form")}>
                 Quick Form
@@ -1731,9 +1746,9 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
                 <select value={rawSection} onChange={(e) => setRawSection(e.target.value)} className="border rounded-lg px-3 py-2 text-sm w-full">
                   <option value="mixed">Mixed / not sure</option>
                   <option value="faqs">FAQs</option>
-                  <option value="listings">Listings / properties</option>
+                  <option value="listings">Listings / items</option>
                   <option value="offers">Services / offers</option>
-                  <option value="paymentPlans">Payment plans</option>
+                  <option value="paymentPlans">Payment / pricing plans</option>
                   <option value="policies">Policies</option>
                   <option value="hours">Hours & contact</option>
                 </select>
@@ -1775,31 +1790,31 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
                 <textarea
                   value={botForm.services}
                   onChange={(e) => setBotForm((p) => ({ ...p, services: e.target.value }))}
-                  placeholder="Services (comma separated)"
+                  placeholder="Services (comma separated or bullet points)"
                   className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
                 />
                 <textarea
                   value={botForm.listingsSummary}
                   onChange={(e) => setBotForm((p) => ({ ...p, listingsSummary: e.target.value }))}
-                  placeholder="Listings summary (optional: areas, types, price ranges, examples)"
+                  placeholder="Items / listings summary (optional: examples, price ranges, categories)"
                   className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
                 />
                 <textarea
                   value={botForm.paymentPlans}
                   onChange={(e) => setBotForm((p) => ({ ...p, paymentPlans: e.target.value }))}
-                  placeholder="Payment plans (optional: downpayment %, years, developer names, notes)"
+                  placeholder="Payment / pricing plans (optional)"
                   className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
                 />
                 <textarea
                   value={botForm.policies}
                   onChange={(e) => setBotForm((p) => ({ ...p, policies: e.target.value }))}
-                  placeholder="Policies (optional: commission, viewing rules, docs, refunds)"
+                  placeholder="Policies (optional)"
                   className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
                 />
                 <textarea
                   value={botForm.faqs}
                   onChange={(e) => setBotForm((p) => ({ ...p, faqs: e.target.value }))}
-                  placeholder="FAQs (one per line or paste them)"
+                  placeholder="FAQs (separate by blank line for best results)"
                   className="border rounded p-2 text-sm w-full min-h-[120px] md:col-span-2"
                 />
               </div>
@@ -1808,12 +1823,12 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
             {buildMode === "paste" ? (
               <div className="space-y-2">
                 <div className="text-xs text-slate-500">
-                  Tip: Use headings: <b>## Listings</b>, <b>## Payment Plans</b>, <b>## FAQs</b>, <b>## Policies</b>.
+                  Best format: headings (<b>## FAQs</b>, <b>## Policies</b>) and use <b>---</b> between items.
                 </div>
                 <textarea
                   value={rawText}
                   onChange={(e) => setRawText(e.target.value)}
-                  placeholder="Paste your listings / payment plans / FAQ / policies here..."
+                  placeholder="Paste your data here..."
                   className="border rounded p-2 text-sm w-full min-h-[200px]"
                 />
               </div>
@@ -1821,7 +1836,7 @@ setSectionsPresent(Array.isArray(c1?.sectionsPresent) ? c1.sectionsPresent : [])
 
             {buildMode === "upload" ? (
               <div className="space-y-2">
-                <div className="text-xs text-slate-500">Upload a .txt file (listings, FAQ, policies, etc.).</div>
+                <div className="text-xs text-slate-500">Upload a .txt file.</div>
                 <input type="file" accept=".txt,text/plain" onChange={(e) => setRawFile(e.target.files?.[0] || null)} className="text-sm" />
                 {rawFile ? <div className="text-xs text-slate-600">Selected: {rawFile.name}</div> : null}
               </div>
