@@ -97,7 +97,18 @@ export default function ClientDashboard() {
 const [replaceOldKnowledge, setReplaceOldKnowledge] = useState(true); // default ON to prevent mixing
   const [pageName, setPageName] = useState("");
   const [pageId, setPageId] = useState("");
+// ✅ WA Templates (App Review)
+const [waTemplates, setWaTemplates] = useState([]); // [{ name, status, language }]
+const [waTemplatesLoading, setWaTemplatesLoading] = useState(false);
+const [waTemplatesError, setWaTemplatesError] = useState("");
 
+const [waTemplateName, setWaTemplateName] = useState("");
+const [waTemplateLang, setWaTemplateLang] = useState("en_US");
+const [waTemplateParam1, setWaTemplateParam1] = useState("Yassin");
+const [waTemplateParam2, setWaTemplateParam2] = useState("12345");
+
+const [waSendingTemplate, setWaSendingTemplate] = useState(false);
+const [waTemplateResult, setWaTemplateResult] = useState(null);
   const [webhookStatus, setWebhookStatus] = useState({
     webhookSubscribed: false,
     webhookFields: [],
@@ -679,7 +690,78 @@ const [replaceOldKnowledge, setReplaceOldKnowledge] = useState(true); // default
       setWaSendingTest(false);
     }
   };
+const fetchWaTemplates = async () => {
+  try {
+    if (!clientId) return;
+    setWaTemplatesError("");
+    setWaTemplatesLoading(true);
 
+    const res = await fetch(`${BASE_URL}/api/whatsapp/templates?clientId=${encodeURIComponent(clientId)}`, {
+      credentials: "include",
+    });
+
+    const json = await res.json().catch(() => ({}));
+
+    if (!res.ok || !json.ok) {
+      setWaTemplatesError(JSON.stringify(json.error || json));
+      setWaTemplates([]);
+      return;
+    }
+
+    const list = Array.isArray(json.templates) ? json.templates : [];
+    setWaTemplates(list);
+
+    // auto-select first APPROVED template
+    const approved = list.find((t) => String(t.status).toUpperCase() === "APPROVED") || list[0];
+    if (approved?.name) {
+      setWaTemplateName(approved.name);
+      if (approved.language) setWaTemplateLang(approved.language);
+    }
+  } catch (e) {
+    setWaTemplatesError(e.message);
+  } finally {
+    setWaTemplatesLoading(false);
+  }
+};
+const sendWaTemplateTest = async () => {
+  try {
+    if (!clientId) return;
+    setWaError("");
+    setWaTemplateResult(null);
+    setWaSendingTemplate(true);
+
+    if (!waTemplateName.trim()) {
+      setWaError("Pick an approved template first.");
+      return;
+    }
+
+    const res = await fetch(`${BASE_URL}/whatsapp/send-template-test`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        clientId,
+        to: waTestTo,
+        templateName: waTemplateName,
+        languageCode: waTemplateLang,
+        params: [waTemplateParam1, waTemplateParam2],
+      }),
+    });
+
+    const json = await res.json().catch(() => ({}));
+
+    if (!res.ok || !json.ok) {
+      setWaError(JSON.stringify(json.error || json.details || json));
+      return;
+    }
+
+    setWaTemplateResult(json);
+  } catch (e) {
+    setWaError(e.message);
+  } finally {
+    setWaSendingTemplate(false);
+  }
+};
   const connectWhatsApp = () => {
     window.location.href = `${BASE_URL}/auth/whatsapp?clientId=${clientId}`;
   };
@@ -1459,83 +1541,189 @@ const [replaceOldKnowledge, setReplaceOldKnowledge] = useState(true); // default
 
         {/* WhatsApp */}
         <Card className="p-4 border-l-4 border-emerald-600">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">WhatsApp Connection (Embedded Signup)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {!botReady ? (
-              <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">🔒 {connectDisabledReason}</div>
-            ) : null}
+  <CardHeader>
+    <CardTitle className="text-lg font-semibold">WhatsApp Connection (Embedded Signup)</CardTitle>
+  </CardHeader>
 
-            <p className="text-sm text-slate-600">Connect WhatsApp via Meta Embedded Signup.</p>
+  <CardContent className="space-y-3">
+    {!botReady ? (
+      <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+        🔒 {connectDisabledReason}
+      </div>
+    ) : null}
 
-            {wa.connected ? (
-              <div className="border rounded-lg bg-white p-3 text-sm">
-                <div>
-                  <b>Status:</b> ✅ Connected
-                </div>
-                <div>
-                  <b>WABA ID:</b> {wa.wabaId || "—"}
-                </div>
-                <div>
-                  <b>Phone Number ID:</b> {wa.phoneNumberId || "—"}
-                </div>
-                <div>
-                  <b>Display Phone:</b> {wa.displayPhone || "—"}
-                </div>
-              </div>
-            ) : (
-              <div className="text-sm text-slate-500">Not connected yet.</div>
-            )}
+    <p className="text-sm text-slate-600">Connect WhatsApp via Meta Embedded Signup.</p>
 
-            {waError ? <div className="text-xs text-red-600 break-words">{waError}</div> : null}
+    {wa.connected ? (
+      <div className="border rounded-lg bg-white p-3 text-sm">
+        <div>
+          <b>Status:</b> ✅ Connected
+        </div>
+        <div>
+          <b>WABA ID:</b> {wa.wabaId || "—"}
+        </div>
+        <div>
+          <b>Phone Number ID:</b> {wa.phoneNumberId || "—"}
+        </div>
+        <div>
+          <b>Display Phone:</b> {wa.displayPhone || "—"}
+        </div>
+      </div>
+    ) : (
+      <div className="text-sm text-slate-500">Not connected yet.</div>
+    )}
 
-            <div className="flex gap-2 flex-wrap">
-              <Button onClick={connectWhatsApp} disabled={!clientId || waLoading || !botReady} title={!botReady ? connectDisabledReason : ""}>
-                {waLoading ? "Connecting..." : "Connect WhatsApp"}
-              </Button>
+    {waError ? <div className="text-xs text-red-600 break-words">{waError}</div> : null}
 
-              <Button variant="outline" onClick={fetchWhatsAppStatus} disabled={!clientId}>
-                Refresh Status
-              </Button>
-            </div>
+    <div className="flex gap-2 flex-wrap">
+      <Button
+        onClick={connectWhatsApp}
+        disabled={!clientId || waLoading || !botReady}
+        title={!botReady ? connectDisabledReason : ""}
+      >
+        {waLoading ? "Connecting..." : "Connect WhatsApp"}
+      </Button>
 
-            {/* Send WhatsApp Test */}
-            <div className="border rounded-lg bg-white p-3 space-y-2">
-              <div className="text-sm font-medium text-slate-800">Send a WhatsApp Test Message (Review Proof)</div>
+      <Button variant="outline" onClick={fetchWhatsAppStatus} disabled={!clientId}>
+        Refresh Status
+      </Button>
 
-              <div className="text-xs text-slate-500">
-                Tip: WhatsApp may require user to message you first (24h window). Send “Hi” to the business number, then run this.
-              </div>
+      {/* ✅ Optional: Auto-load templates after refresh */}
+      <Button
+        variant="outline"
+        onClick={fetchWaTemplates}
+        disabled={!clientId || !wa.connected || waTemplatesLoading || !botReady}
+      >
+        {waTemplatesLoading ? "Syncing..." : "Sync Templates"}
+      </Button>
+    </div>
 
-              <input
-                value={waTestTo}
-                onChange={(e) => setWaTestTo(e.target.value)}
-                placeholder="Recipient number (e.g. +2011xxxxxxx)"
-                className="border rounded p-2 text-sm w-full"
-                disabled={!botReady}
-              />
+    {/* ✅ Templates Section (APP REVIEW PROOF) */}
+    <div className="border rounded-lg bg-white p-3 space-y-2">
+      <div className="text-sm font-medium text-slate-800">Send an Approved Template (App Review Proof)</div>
 
-              <textarea
-                value={waTestText}
-                onChange={(e) => setWaTestText(e.target.value)}
-                placeholder="Message text"
-                className="border rounded p-2 text-sm w-full min-h-[90px]"
-                disabled={!botReady}
-              />
+      <div className="text-xs text-slate-500">
+        Required: pick an <b>APPROVED</b> template, send from this UI, then show it delivered in the native WhatsApp app.
+      </div>
 
-              <div className="flex gap-2 flex-wrap items-center">
-                <Button onClick={sendWaTest} disabled={waSendingTest || !waTestTo.trim() || !waTestText.trim() || !wa.connected || !botReady}>
-                  {waSendingTest ? "Sending..." : "Send WhatsApp Test"}
-                </Button>
+      {waTemplatesError ? <div className="text-xs text-red-600 break-words">{waTemplatesError}</div> : null}
 
-                {waTestResult?.ok ? <div className="text-xs text-green-700">Sent ✅</div> : null}
-              </div>
+      <label className="text-xs text-slate-600">Approved template</label>
+      <select
+        value={waTemplateName}
+        onChange={(e) => setWaTemplateName(e.target.value)}
+        className="border rounded p-2 text-sm w-full"
+        disabled={!botReady || !wa.connected}
+      >
+        <option value="">Select template...</option>
+        {(waTemplates || [])
+          .filter((t) => String(t.status || "").toUpperCase() === "APPROVED")
+          .map((t) => (
+            <option key={`${t.name}:${t.language || ""}`} value={t.name}>
+              {t.name} (APPROVED){t.language ? ` • ${t.language}` : ""}
+            </option>
+          ))}
+      </select>
 
-              {waTestResult ? <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">{JSON.stringify(waTestResult, null, 2)}</pre> : null}
-            </div>
-          </CardContent>
-        </Card>
+      <label className="text-xs text-slate-600">Language code</label>
+      <input
+        value={waTemplateLang}
+        onChange={(e) => setWaTemplateLang(e.target.value)}
+        placeholder="en_US"
+        className="border rounded p-2 text-sm w-full"
+        disabled={!botReady || !wa.connected}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <div>
+       <label className="text-xs text-slate-600">Param {"{{1}}"}</label>
+          <input
+            value={waTemplateParam1}
+            onChange={(e) => setWaTemplateParam1(e.target.value)}
+            className="border rounded p-2 text-sm w-full"
+            disabled={!botReady || !wa.connected}
+          />
+        </div>
+
+        <div>
+       <label className="text-xs text-slate-600">Param {"{{2}}"}</label>
+          <input
+            value={waTemplateParam2}
+            onChange={(e) => setWaTemplateParam2(e.target.value)}
+            className="border rounded p-2 text-sm w-full"
+            disabled={!botReady || !wa.connected}
+          />
+        </div>
+      </div>
+
+      <label className="text-xs text-slate-600">Recipient (test number)</label>
+      <input
+        value={waTestTo}
+        onChange={(e) => setWaTestTo(e.target.value)}
+        placeholder="Recipient number (e.g. +2011xxxxxxx)"
+        className="border rounded p-2 text-sm w-full"
+        disabled={!botReady}
+      />
+
+      <div className="flex gap-2 flex-wrap items-center">
+        <Button
+          onClick={sendWaTemplateTest}
+          disabled={
+            waSendingTemplate ||
+            !wa.connected ||
+            !botReady ||
+            !waTestTo.trim() ||
+            !waTemplateName.trim()
+          }
+        >
+          {waSendingTemplate ? "Sending..." : "Send Template Message"}
+        </Button>
+
+        {waTemplateResult?.ok ? <div className="text-xs text-green-700">Sent ✅</div> : null}
+      </div>
+
+      {waTemplateResult ? (
+        <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
+          {JSON.stringify(waTemplateResult, null, 2)}
+        </pre>
+      ) : null}
+    </div>
+
+    {/* ✅ OPTIONAL: keep free-text test for debugging (NOT App Review proof) */}
+    <div className="border rounded-lg bg-white p-3 space-y-2">
+      <div className="text-sm font-medium text-slate-800">Send a WhatsApp Text Message (Debug Only)</div>
+
+      <div className="text-xs text-slate-500">
+        App Review usually wants <b>template</b> sending proof. Use this only for internal testing.
+      </div>
+
+      <textarea
+        value={waTestText}
+        onChange={(e) => setWaTestText(e.target.value)}
+        placeholder="Message text"
+        className="border rounded p-2 text-sm w-full min-h-[90px]"
+        disabled={!botReady}
+      />
+
+      <div className="flex gap-2 flex-wrap items-center">
+        <Button
+          onClick={sendWaTest}
+          disabled={waSendingTest || !waTestTo.trim() || !waTestText.trim() || !wa.connected || !botReady}
+        >
+          {waSendingTest ? "Sending..." : "Send WhatsApp Text"}
+        </Button>
+
+        {waTestResult?.ok ? <div className="text-xs text-green-700">Sent ✅</div> : null}
+      </div>
+
+      {waTestResult ? (
+        <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
+          {JSON.stringify(waTestResult, null, 2)}
+        </pre>
+      ) : null}
+    </div>
+  </CardContent>
+</Card>
 
         {/* Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
