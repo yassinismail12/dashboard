@@ -696,7 +696,7 @@ const fetchWaTemplates = async () => {
     setWaTemplatesError("");
     setWaTemplatesLoading(true);
 
-    const res = await fetch(`${BASE_URL}/api/whatsapp/templates?clientId=${encodeURIComponent(clientId)}`, {
+    const res = await fetch(`${BASE_URL}/whatsapp/templates?clientId=${encodeURIComponent(clientId)}`, {
       credentials: "include",
     });
 
