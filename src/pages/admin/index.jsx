@@ -389,10 +389,8 @@ export default function Dashboard() {
 
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <div className="text-sm text-slate-500">Logged in as</div>
-              <div className="font-medium text-slate-800 text-sm">
-                {localStorage.getItem("userEmail") || "Admin"}
-              </div>
+              <div className="text-sm text-slate-500">Logged in </div>
+            
             </div>
 
             <Button className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition" onClick={handleLogout}>
