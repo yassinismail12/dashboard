@@ -83,6 +83,12 @@ export default function ClientDashboard() {
   const [waLoading, setWaLoading] = useState(false);
   const [waError, setWaError] = useState("");
 
+  const [promptSettings, setPromptSettings] = useState({
+  tone: "friendly",
+  orderFlowEnabled: false,
+  humanEscalationEnabled: true,
+  businessType: "default",
+});
   const [showConvoModal, setShowConvoModal] = useState(false);
   const [currentConvos, setCurrentConvos] = useState([]);
   const [humanRequests, setHumanRequests] = useState(0);
@@ -321,26 +327,39 @@ const [waTemplateResult, setWaTemplateResult] = useState(null);
 
     // A) POST /api/knowledge/build (JSON)
     if (buildMode === "form" || buildMode === "paste") {
-      const payload =
-        buildMode === "form"
-          ? {
-              clientId,
-              botType: BOT_TYPE,
-              inputType: "form",
-              replace: Boolean(replaceOldKnowledge), // ✅ NEW
-              data: {
-                businessName: botForm.businessName,
-                businessType: botForm.businessType,
-                cityArea: botForm.cityArea,
-                hours: botForm.hours,
-                phoneWhatsapp: botForm.phoneWhatsapp,
-                services: botForm.services,
-                faqs: botForm.faqs,
-                listingsSummary: botForm.listingsSummary,
-                paymentPlans: botForm.paymentPlans,
-                policies: botForm.policies,
-              },
-            }
+     const payload =
+  buildMode === "form"
+    ? {
+        clientId,
+        botType: BOT_TYPE,
+        inputType: "form",
+        replace: Boolean(replaceOldKnowledge),
+        promptConfig: {
+          businessName: botForm.businessName,
+          businessType: botForm.businessType || "default",
+          tone: promptSettings.tone,
+          humanEscalation: {
+            enabled: promptSettings.humanEscalationEnabled,
+            token: "[Human_request]",
+          },
+          orderFlow: {
+            enabled: promptSettings.orderFlowEnabled,
+            token: "[ORDER_REQUEST]",
+          },
+        },
+        data: {
+          businessName: botForm.businessName,
+          businessType: botForm.businessType,
+          cityArea: botForm.cityArea,
+          hours: botForm.hours,
+          phoneWhatsapp: botForm.phoneWhatsapp,
+          services: botForm.services,
+          faqs: botForm.faqs,
+          listingsSummary: botForm.listingsSummary,
+          paymentPlans: botForm.paymentPlans,
+          policies: botForm.policies,
+        },
+      }
           : {
               clientId,
               botType: BOT_TYPE,
@@ -1935,7 +1954,8 @@ const sendWaTemplateTest = async () => {
 
           <div className="space-y-4">
             <div className="text-sm text-slate-600">
-              Choose how you want to add your data. We’ll convert it into knowledge chunks to power your chatbot.
+         
+Add your business data and bot behavior. We’ll convert your data into knowledge chunks and use your settings to control how the bot replies.
             </div>
 
             <div className="flex gap-2 flex-wrap">
