@@ -809,7 +809,7 @@ export default function ClientDashboard() {
     try {
       setConvoActionLoading((prev) => ({ ...prev, [actionKey]: true }));
 
-      const res = await fetch(`${BASE_URL}/messenger/resume-conversation`, {
+      const res = await fetch(`${BASE_URL}/webhook/resume-conversation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
