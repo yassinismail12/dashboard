@@ -7,29 +7,14 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
-/**
- * ✅ This file includes:
- * - Bot gate (connections locked until knowledge is built)
- * - Build modal: Quick Form / Paste Text / Upload .txt
- * - Calls (best-effort):
- *   - GET /api/clients/:clientId         (preferred, if exists)
- *   - GET /api/knowledge/status?clientId (fallback)
- *   - POST /api/knowledge/build
- *   - POST /api/knowledge/upload
- *   - POST /api/knowledge/rebuild/:id    (fallback)
- *
- * ✅ IMPORTANT:
- * - If you add new fields in Quick Form, you must ALSO update backend `formToMixedText()` to include them,
- *   otherwise they’ll be saved to client.files but won’t be chunked as expected.
- */
-
 const BASE_URL = "https://serverowned.onrender.com";
-
-// ✅ Keep botType internal & automatic (no UI select)
-// If later you truly need multi-bot behavior, re-add a select ONLY after the backend uses it meaningfully.
 const BOT_TYPE = "default";
 
 export default function ClientDashboard() {
+  const navigate = useNavigate();
+
+  const [clientId, setClientId] = useState(null);
+
   const [stats, setStats] = useState({
     used: 0,
     quota: 1000,
@@ -38,8 +23,6 @@ export default function ClientDashboard() {
 
   const [mode, setMode] = useState("weekly");
   const [chartData, setChartData] = useState([]);
-  const [showMessagesOnly, setShowMessagesOnly] = useState(false);
-  const [testPsid, setTestPsid] = useState("33461378173508614");
 
   const [selectedSource, setSelectedSource] = useState("all");
   const [conversationStats, setConversationStats] = useState({
@@ -49,72 +32,21 @@ export default function ClientDashboard() {
     bySource: { web: 0, messenger: 0, instagram: 0, whatsapp: 0 },
   });
 
-  const [ig, setIg] = useState({
-    igId: "",
-    igUsername: "",
-    igName: "",
-    igProfilePicUrl: "",
-  });
-
-  const [igProfile, setIgProfile] = useState(null);
-  const [igMedia, setIgMedia] = useState([]);
-  const [igLoadingProfile, setIgLoadingProfile] = useState(false);
-  const [igLoadingMedia, setIgLoadingMedia] = useState(false);
-  const [igError, setIgError] = useState("");
-
-  // ✅ IG DM proof
-  const [igDmRecipientId, setIgDmRecipientId] = useState("");
-  const [igDmText, setIgDmText] = useState("✅ Test message from dashboard");
-  const [igSendingDm, setIgSendingDm] = useState(false);
-  const [igDmResult, setIgDmResult] = useState(null);
-
-  const [wa, setWa] = useState({
-    connected: false,
-    wabaId: "",
-    phoneNumberId: "",
-    displayPhone: "",
-  });
-
-  // ✅ WA Test Send proof
-  const [waTestTo, setWaTestTo] = useState("");
-  const [waTestText, setWaTestText] = useState("✅ Test message from dashboard (WhatsApp)");
-  const [waSendingTest, setWaSendingTest] = useState(false);
-  const [waTestResult, setWaTestResult] = useState(null);
-  const [waLoading, setWaLoading] = useState(false);
-  const [waError, setWaError] = useState("");
-
-  const [promptSettings, setPromptSettings] = useState({
-  tone: "friendly",
-  orderFlowEnabled: false,
-  humanEscalationEnabled: true,
-  businessType: "default",
-});
-  const [showConvoModal, setShowConvoModal] = useState(false);
   const [currentConvos, setCurrentConvos] = useState([]);
+  const [showConvoModal, setShowConvoModal] = useState(false);
+  const [convoActionLoading, setConvoActionLoading] = useState({});
+
   const [humanRequests, setHumanRequests] = useState(0);
   const [tourRequests, setTourRequests] = useState(0);
   const [orderRequests, setOrderRequests] = useState(0);
-  const [payloadViewMode, setPayloadViewMode] = useState("full");
-
-  const navigate = useNavigate();
-  const [clientId, setClientId] = useState(null);
 
   const [handoverEnabled, setHandoverEnabled] = useState(false);
-const [replaceOldKnowledge, setReplaceOldKnowledge] = useState(true); // default ON to prevent mixing
+
   const [pageName, setPageName] = useState("");
   const [pageId, setPageId] = useState("");
-// ✅ WA Templates (App Review)
-const [waTemplates, setWaTemplates] = useState([]); // [{ name, status, language }]
-const [waTemplatesLoading, setWaTemplatesLoading] = useState(false);
-const [waTemplatesError, setWaTemplatesError] = useState("");
 
-const [waTemplateName, setWaTemplateName] = useState("");
-const [waTemplateLang, setWaTemplateLang] = useState("en_US");
-const [waTemplateParam1, setWaTemplateParam1] = useState("Yassin");
-const [waTemplateParam2, setWaTemplateParam2] = useState("12345");
+  const [testPsid, setTestPsid] = useState("33461378173508614");
 
-const [waSendingTemplate, setWaSendingTemplate] = useState(false);
-const [waTemplateResult, setWaTemplateResult] = useState(null);
   const [webhookStatus, setWebhookStatus] = useState({
     webhookSubscribed: false,
     webhookFields: [],
@@ -122,39 +54,61 @@ const [waTemplateResult, setWaTemplateResult] = useState(null);
     lastWebhookAt: null,
     lastWebhookType: "",
   });
-
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [subscribeError, setSubscribeError] = useState("");
   const [showWebhookModal, setShowWebhookModal] = useState(false);
   const [lastWebhookPayload, setLastWebhookPayload] = useState(null);
+  const [payloadViewMode, setPayloadViewMode] = useState("full");
+  const [showMessagesOnly, setShowMessagesOnly] = useState(false);
 
-  // ✅ Health/warnings state
   const [health, setHealth] = useState({ status: "ok", warnings: [] });
   const [healthLoading, setHealthLoading] = useState(false);
 
-  const [postsLoading, setPostsLoading] = useState(false);
-  const [posts, setPosts] = useState([]);
-  const [postsError, setPostsError] = useState("");
+  const [wa, setWa] = useState({
+    connected: false,
+    wabaId: "",
+    phoneNumberId: "",
+    displayPhone: "",
+  });
+  const [waLoading, setWaLoading] = useState(false);
+  const [waError, setWaError] = useState("");
 
-  const [selectedPostId, setSelectedPostId] = useState(null);
-  const [commentsLoading, setCommentsLoading] = useState(false);
-  const [comments, setComments] = useState([]);
-  const [commentsError, setCommentsError] = useState("");
+  const [waTemplates, setWaTemplates] = useState([]);
+  const [waTemplatesLoading, setWaTemplatesLoading] = useState(false);
+  const [waTemplatesError, setWaTemplatesError] = useState("");
 
-  // ✅ Bot build gate + modal
+  const [waTestTo, setWaTestTo] = useState("");
+  const [waTestText, setWaTestText] = useState("✅ Test message from dashboard (WhatsApp)");
+  const [waSendingTest, setWaSendingTest] = useState(false);
+  const [waTestResult, setWaTestResult] = useState(null);
+
+  const [waTemplateName, setWaTemplateName] = useState("");
+  const [waTemplateLang, setWaTemplateLang] = useState("en_US");
+  const [waTemplateParam1, setWaTemplateParam1] = useState("Yassin");
+  const [waTemplateParam2, setWaTemplateParam2] = useState("12345");
+  const [waSendingTemplate, setWaSendingTemplate] = useState(false);
+  const [waTemplateResult, setWaTemplateResult] = useState(null);
+
   const [botReady, setBotReady] = useState(false);
   const [knowledgeVersion, setKnowledgeVersion] = useState(0);
   const [knowledgeStatusRaw, setKnowledgeStatusRaw] = useState("");
   const [buildOpen, setBuildOpen] = useState(false);
-  const [buildMode, setBuildMode] = useState("form"); // "form" | "paste" | "upload"
+  const [buildMode, setBuildMode] = useState("form");
   const [buildLoading, setBuildLoading] = useState(false);
   const [buildError, setBuildError] = useState("");
   const [buildSuccess, setBuildSuccess] = useState("");
 
+  const [replaceOldKnowledge, setReplaceOldKnowledge] = useState(true);
   const [coverageWarnings, setCoverageWarnings] = useState([]);
   const [sectionsPresent, setSectionsPresent] = useState([]);
 
-  // ✅ Quick form fields
+  const [promptSettings, setPromptSettings] = useState({
+    tone: "friendly",
+    orderFlowEnabled: false,
+    humanEscalationEnabled: true,
+    businessType: "default",
+  });
+
   const [botForm, setBotForm] = useState({
     businessName: "",
     businessType: "",
@@ -168,8 +122,7 @@ const [waTemplateResult, setWaTemplateResult] = useState(null);
     policies: "",
   });
 
-  // Paste / upload fields
-  const [rawSection, setRawSection] = useState("mixed"); // faqs | listings | offers | hours | policies | paymentPlans | mixed
+  const [rawSection, setRawSection] = useState("mixed");
   const [rawText, setRawText] = useState("");
   const [rawFile, setRawFile] = useState(null);
 
@@ -179,14 +132,11 @@ const [waTemplateResult, setWaTemplateResult] = useState(null);
     return "";
   }, [clientId, botReady]);
 
-  // Clear build messages when modal/mode changes (prevents stale error)
   useEffect(() => {
     setBuildError("");
     setBuildSuccess("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildMode, buildOpen]);
 
-  // 🔹 Get user info from /api/me
   useEffect(() => {
     async function fetchUser() {
       try {
@@ -205,10 +155,8 @@ const [waTemplateResult, setWaTemplateResult] = useState(null);
       }
     }
     fetchUser();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [navigate]);
 
-  // 🔹 Fetch dashboard data when clientId changes
   useEffect(() => {
     if (!clientId) return;
     fetchStats();
@@ -219,15 +167,59 @@ const [waTemplateResult, setWaTemplateResult] = useState(null);
     fetchClientHealth();
     fetchWhatsAppStatus();
     fetchKnowledgeGate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
 
-  // ✅ Determine whether bot is built (gate connections)
+  useEffect(() => {
+    if (!clientId) return;
+
+    const fetchChartData = async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/api/stats/${clientId}?mode=${mode}`, { credentials: "include" });
+        const contentType = res.headers.get("content-type") || "";
+        const raw = await res.text();
+
+        if (!res.ok) {
+          console.error("Chart API failed:", res.status, raw.slice(0, 300));
+          return;
+        }
+
+        if (!contentType.includes("application/json")) {
+          console.error("Chart API returned non-JSON:", contentType, raw.slice(0, 300));
+          return;
+        }
+
+        const data = JSON.parse(raw);
+        const results = Array.isArray(data) ? data : data.chartResults || [];
+        let normalized = [];
+
+        if (mode === "daily") {
+          normalized = results.map((d) => ({ label: `${d._id}:00`, messages: d.count }));
+        } else if (mode === "weekly") {
+          const daysMap = { 1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat" };
+          normalized = results.map((d) => ({ label: daysMap[d._id] || d._id, messages: d.count }));
+        } else if (mode === "monthly") {
+          normalized = results.map((d) => ({ label: String(d._id), messages: d.count }));
+        }
+
+        setChartData(normalized);
+      } catch (err) {
+        console.error("Error fetching chart data:", err);
+      }
+    };
+
+    fetchChartData();
+  }, [mode, clientId]);
+
+  useEffect(() => {
+    if (showConvoModal) {
+      viewConvos();
+    }
+  }, [selectedSource, showConvoModal]);
+
   const fetchKnowledgeGate = async () => {
     try {
       if (!clientId) return;
 
-      // 1) Try client doc first
       const r1 = await fetch(`${BASE_URL}/api/clients/${clientId}`, { credentials: "include" });
       const c1 = await r1.json().catch(() => ({}));
 
@@ -251,7 +243,6 @@ const [waTemplateResult, setWaTemplateResult] = useState(null);
         return;
       }
 
-      // 2) Fallback endpoint
       const r2 = await fetch(
         `${BASE_URL}/api/knowledge/status?clientId=${encodeURIComponent(clientId)}&botType=${encodeURIComponent(BOT_TYPE)}`,
         { credentials: "include" }
@@ -284,166 +275,160 @@ const [waTemplateResult, setWaTemplateResult] = useState(null);
     }
   };
 
-  // ✅ Build / Rebuild knowledge
- const submitBuild = async () => {
-  try {
-    if (!clientId) return;
-    setBuildError("");
-    setBuildSuccess("");
-    setBuildLoading(true);
+  const submitBuild = async () => {
+    try {
+      if (!clientId) return;
+      setBuildError("");
+      setBuildSuccess("");
+      setBuildLoading(true);
 
-    // Validation
-    if (buildMode === "form") {
-      const hasAny =
-        botForm.businessName.trim() ||
-        botForm.businessType.trim() ||
-        botForm.cityArea.trim() ||
-        botForm.hours.trim() ||
-        botForm.phoneWhatsapp.trim() ||
-        botForm.services.trim() ||
-        botForm.faqs.trim() ||
-        botForm.listingsSummary.trim() ||
-        botForm.paymentPlans.trim() ||
-        botForm.policies.trim();
+      if (buildMode === "form") {
+        const hasAny =
+          botForm.businessName.trim() ||
+          botForm.businessType.trim() ||
+          botForm.cityArea.trim() ||
+          botForm.hours.trim() ||
+          botForm.phoneWhatsapp.trim() ||
+          botForm.services.trim() ||
+          botForm.faqs.trim() ||
+          botForm.listingsSummary.trim() ||
+          botForm.paymentPlans.trim() ||
+          botForm.policies.trim();
 
-      if (!hasAny) {
-        setBuildError("Please fill at least one field to build your bot.");
+        if (!hasAny) {
+          setBuildError("Please fill at least one field to build your bot.");
+          return;
+        }
+      }
+
+      if (buildMode === "paste" && !rawText.trim()) {
+        setBuildError("Paste your text first.");
         return;
       }
-    }
 
-    if (buildMode === "paste" && !rawText.trim()) {
-      setBuildError("Paste your text first.");
-      return;
-    }
-
-    if (buildMode === "upload" && !rawFile) {
-      setBuildError("Upload a .txt file first.");
-      return;
-    }
-
-    let ok = false;
-    let lastJson = null;
-
-    // A) POST /api/knowledge/build (JSON)
-    if (buildMode === "form" || buildMode === "paste") {
-     const payload =
-  buildMode === "form"
-    ? {
-        clientId,
-        botType: BOT_TYPE,
-        inputType: "form",
-        replace: Boolean(replaceOldKnowledge),
-        promptConfig: {
-          businessName: botForm.businessName,
-          businessType: botForm.businessType || "default",
-          tone: promptSettings.tone,
-          humanEscalation: {
-            enabled: promptSettings.humanEscalationEnabled,
-            token: "[Human_request]",
-          },
-          orderFlow: {
-            enabled: promptSettings.orderFlowEnabled,
-            token: "[ORDER_REQUEST]",
-          },
-        },
-        data: {
-          businessName: botForm.businessName,
-          businessType: botForm.businessType,
-          cityArea: botForm.cityArea,
-          hours: botForm.hours,
-          phoneWhatsapp: botForm.phoneWhatsapp,
-          services: botForm.services,
-          faqs: botForm.faqs,
-          listingsSummary: botForm.listingsSummary,
-          paymentPlans: botForm.paymentPlans,
-          policies: botForm.policies,
-        },
+      if (buildMode === "upload" && !rawFile) {
+        setBuildError("Upload a .txt file first.");
+        return;
       }
-          : {
-              clientId,
-              botType: BOT_TYPE,
-              inputType: "text",
-              replace: Boolean(replaceOldKnowledge), // ✅ NEW
-              section: rawSection,
-              text: rawText,
-            };
 
-      try {
-        const res = await fetch(`${BASE_URL}/api/knowledge/build`, {
+      let ok = false;
+      let lastJson = null;
+
+      if (buildMode === "form" || buildMode === "paste") {
+        const payload =
+          buildMode === "form"
+            ? {
+                clientId,
+                botType: BOT_TYPE,
+                inputType: "form",
+                replace: Boolean(replaceOldKnowledge),
+                promptConfig: {
+                  businessName: botForm.businessName,
+                  businessType: botForm.businessType || "default",
+                  tone: promptSettings.tone,
+                  humanEscalation: {
+                    enabled: promptSettings.humanEscalationEnabled,
+                    token: "[Human_request]",
+                  },
+                  orderFlow: {
+                    enabled: promptSettings.orderFlowEnabled,
+                    token: "[ORDER_REQUEST]",
+                  },
+                },
+                data: {
+                  businessName: botForm.businessName,
+                  businessType: botForm.businessType,
+                  cityArea: botForm.cityArea,
+                  hours: botForm.hours,
+                  phoneWhatsapp: botForm.phoneWhatsapp,
+                  services: botForm.services,
+                  faqs: botForm.faqs,
+                  listingsSummary: botForm.listingsSummary,
+                  paymentPlans: botForm.paymentPlans,
+                  policies: botForm.policies,
+                },
+              }
+            : {
+                clientId,
+                botType: BOT_TYPE,
+                inputType: "text",
+                replace: Boolean(replaceOldKnowledge),
+                section: rawSection,
+                text: rawText,
+              };
+
+        try {
+          const res = await fetch(`${BASE_URL}/api/knowledge/build`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(payload),
+          });
+
+          const json = await res.json().catch(() => ({}));
+          lastJson = json;
+          if (res.ok && (json.ok || json.success || json.status === "ok")) ok = true;
+        } catch {
+          // ignore and try fallback
+        }
+      }
+
+      if (!ok && buildMode === "upload") {
+        try {
+          const fd = new FormData();
+          fd.append("clientId", clientId);
+          fd.append("section", rawSection);
+          fd.append("botType", BOT_TYPE);
+          fd.append("replace", String(Boolean(replaceOldKnowledge)));
+          fd.append("file", rawFile);
+
+          const res = await fetch(`${BASE_URL}/api/knowledge/upload`, {
+            method: "POST",
+            credentials: "include",
+            body: fd,
+          });
+
+          const json = await res.json().catch(() => ({}));
+          lastJson = json;
+          if (res.ok && (json.ok || json.success || json.status === "ok")) ok = true;
+        } catch {
+          // ignore and try fallback
+        }
+      }
+
+      if (!ok) {
+        const res = await fetch(`${BASE_URL}/api/knowledge/rebuild/${encodeURIComponent(clientId)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            botType: BOT_TYPE,
+            replace: Boolean(replaceOldKnowledge),
+          }),
         });
 
         const json = await res.json().catch(() => ({}));
         lastJson = json;
-        if (res.ok && (json.ok || json.success || json.status === "ok")) ok = true;
-      } catch {
-        // ignore and try fallback
+        if (res.ok) ok = Boolean(json.ok ?? json.success ?? true);
       }
-    }
 
-    // B) POST /api/knowledge/upload (multipart)
-    if (!ok && buildMode === "upload") {
-      try {
-        const fd = new FormData();
-        fd.append("clientId", clientId);
-        fd.append("section", rawSection);
-        fd.append("botType", BOT_TYPE);
-        fd.append("replace", String(Boolean(replaceOldKnowledge))); // ✅ NEW
-        fd.append("file", rawFile);
-
-        const res = await fetch(`${BASE_URL}/api/knowledge/upload`, {
-          method: "POST",
-          credentials: "include",
-          body: fd,
-        });
-
-        const json = await res.json().catch(() => ({}));
-        lastJson = json;
-        if (res.ok && (json.ok || json.success || json.status === "ok")) ok = true;
-      } catch {
-        // ignore and try fallback
+      if (!ok) {
+        setBuildError(`Build failed. Server response:\n${JSON.stringify(lastJson || {}, null, 2).slice(0, 1200)}`);
+        return;
       }
+
+      setBuildSuccess("✅ Bot built successfully. Connections are now unlocked.");
+      setBuildOpen(false);
+
+      await fetchKnowledgeGate();
+      await fetchClientHealth();
+    } catch (e) {
+      setBuildError(e?.message || "Build failed.");
+    } finally {
+      setBuildLoading(false);
     }
+  };
 
-    // C) Fallback: rebuild endpoint
-    if (!ok) {
-      const res = await fetch(`${BASE_URL}/api/knowledge/rebuild/${encodeURIComponent(clientId)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          botType: BOT_TYPE,
-          replace: Boolean(replaceOldKnowledge), // ✅ NEW
-        }),
-      });
-
-      const json = await res.json().catch(() => ({}));
-      lastJson = json;
-      if (res.ok) ok = Boolean(json.ok ?? json.success ?? true);
-    }
-
-    if (!ok) {
-      setBuildError(`Build failed. Server response:\n${JSON.stringify(lastJson || {}, null, 2).slice(0, 1200)}`);
-      return;
-    }
-
-    setBuildSuccess("✅ Bot built successfully. Connections are now unlocked.");
-    setBuildOpen(false);
-
-    await fetchKnowledgeGate();
-    await fetchClientHealth();
-  } catch (e) {
-    setBuildError(e?.message || "Build failed.");
-  } finally {
-    setBuildLoading(false);
-  }
-};
-
-  // ✅ Fetch warnings/health
   const fetchClientHealth = async () => {
     try {
       if (!clientId) return;
@@ -482,7 +467,6 @@ const [waTemplateResult, setWaTemplateResult] = useState(null);
     }
   };
 
-  // ✅ Fetch client object to show page + IG info
   const fetchClientPageConnection = async () => {
     try {
       const res = await fetch(`${BASE_URL}/api/clients/${clientId}`, { credentials: "include" });
@@ -491,72 +475,15 @@ const [waTemplateResult, setWaTemplateResult] = useState(null);
       setPageName(data?.PAGE_NAME || "");
       setPageId(data?.pageId || "");
 
-      setIg({
-        igId: data?.igId || data?.igBusinessId || "",
-        igUsername: data?.igUsername || "",
-        igName: data?.igName || "",
-        igProfilePicUrl: data?.igProfilePicUrl || "",
-      });
-
-      // Prefill business name once
       setBotForm((prev) => ({
         ...prev,
         businessName: prev.businessName || data?.businessName || data?.PAGE_NAME || "",
       }));
 
-      // Also hydrate coverage if present
       setCoverageWarnings(Array.isArray(data?.coverageWarnings) ? data.coverageWarnings : []);
       setSectionsPresent(Array.isArray(data?.sectionsPresent) ? data.sectionsPresent : []);
     } catch (err) {
       console.error("Error fetching client page connection:", err);
-    }
-  };
-
-  const fetchIgProfile = async () => {
-    try {
-      setIgError("");
-      setIgLoadingProfile(true);
-
-      const res = await fetch(`${BASE_URL}/instagram/review/profile?clientId=${encodeURIComponent(clientId)}`, {
-        credentials: "include",
-      });
-      const json = await res.json().catch(() => ({}));
-
-      if (!res.ok || !json.ok) {
-        setIgError(JSON.stringify(json.error || json));
-        setIgProfile(null);
-        return;
-      }
-
-      setIgProfile(json.data);
-      await fetchClientPageConnection();
-    } catch (e) {
-      setIgError(e.message);
-    } finally {
-      setIgLoadingProfile(false);
-    }
-  };
-
-  const fetchIgMedia = async () => {
-    try {
-      setIgError("");
-      setIgLoadingMedia(true);
-
-      const res = await fetch(`${BASE_URL}/instagram/review/media?clientId=${encodeURIComponent(clientId)}`, {
-        credentials: "include",
-      });
-      const json = await res.json().catch(() => ({}));
-
-      if (!res.ok || !json.ok) {
-        setIgError(JSON.stringify(json.error || json));
-        setIgMedia([]);
-        return;
-      }
-      setIgMedia(json.data || []);
-    } catch (e) {
-      setIgError(e.message);
-    } finally {
-      setIgLoadingMedia(false);
     }
   };
 
@@ -580,41 +507,6 @@ const [waTemplateResult, setWaTemplateResult] = useState(null);
     }
   };
 
-  // ✅ IG DM sender proof
-  const sendIgDm = async () => {
-    try {
-      if (!clientId) return;
-      setIgError("");
-      setIgDmResult(null);
-      setIgSendingDm(true);
-
-      const res = await fetch(`${BASE_URL}/instagram/review/send-dm`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          clientId,
-          recipientId: igDmRecipientId.trim() || undefined,
-          text: igDmText,
-        }),
-      });
-
-      const json = await res.json().catch(() => ({}));
-
-      if (!res.ok || !json.ok) {
-        setIgError(JSON.stringify(json.error || json));
-        return;
-      }
-
-      setIgDmResult(json);
-    } catch (e) {
-      setIgError(e.message);
-    } finally {
-      setIgSendingDm(false);
-    }
-  };
-
-  // ✅ Fetch webhook status
   const fetchWebhookStatus = async () => {
     try {
       if (!clientId) return;
@@ -636,20 +528,6 @@ const [waTemplateResult, setWaTemplateResult] = useState(null);
     }
   };
 
-  async function sendReviewTest(pageId, psid) {
-    const r = await fetch(`${BASE_URL}/api/review/send-test`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ pageId, psid, text: "Your appointment has been scheduled." }),
-    });
-
-    const data = await r.json().catch(() => ({}));
-    if (data.ok) alert("Sent ✅");
-    else alert("Failed ❌ (check server logs)");
-  }
-
-  // ✅ Enable webhooks
   const enableWebhooks = async () => {
     try {
       if (!clientId) return;
@@ -709,137 +587,82 @@ const [waTemplateResult, setWaTemplateResult] = useState(null);
       setWaSendingTest(false);
     }
   };
-const fetchWaTemplates = async () => {
-  try {
-    if (!clientId) return;
-    setWaTemplatesError("");
-    setWaTemplatesLoading(true);
 
-    const res = await fetch(`${BASE_URL}/whatsapp/templates?clientId=${encodeURIComponent(clientId)}`, {
-      credentials: "include",
-    });
+  const fetchWaTemplates = async () => {
+    try {
+      if (!clientId) return;
+      setWaTemplatesError("");
+      setWaTemplatesLoading(true);
 
-    const json = await res.json().catch(() => ({}));
+      const res = await fetch(`${BASE_URL}/whatsapp/templates?clientId=${encodeURIComponent(clientId)}`, {
+        credentials: "include",
+      });
 
-    if (!res.ok || !json.ok) {
-      setWaTemplatesError(JSON.stringify(json.error || json));
-      setWaTemplates([]);
-      return;
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok || !json.ok) {
+        setWaTemplatesError(JSON.stringify(json.error || json));
+        setWaTemplates([]);
+        return;
+      }
+
+      const list = Array.isArray(json.templates) ? json.templates : [];
+      setWaTemplates(list);
+
+      const approved = list.find((t) => String(t.status).toUpperCase() === "APPROVED") || list[0];
+      if (approved?.name) {
+        setWaTemplateName(approved.name);
+        if (approved.language) setWaTemplateLang(approved.language);
+      }
+    } catch (e) {
+      setWaTemplatesError(e.message);
+    } finally {
+      setWaTemplatesLoading(false);
     }
+  };
 
-    const list = Array.isArray(json.templates) ? json.templates : [];
-    setWaTemplates(list);
+  const sendWaTemplateTest = async () => {
+    try {
+      if (!clientId) return;
+      setWaError("");
+      setWaTemplateResult(null);
+      setWaSendingTemplate(true);
 
-    // auto-select first APPROVED template
-    const approved = list.find((t) => String(t.status).toUpperCase() === "APPROVED") || list[0];
-    if (approved?.name) {
-      setWaTemplateName(approved.name);
-      if (approved.language) setWaTemplateLang(approved.language);
+      if (!waTemplateName.trim()) {
+        setWaError("Pick an approved template first.");
+        return;
+      }
+
+      const res = await fetch(`${BASE_URL}/whatsapp/send-template-test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          clientId,
+          to: waTestTo,
+          templateName: waTemplateName,
+          languageCode: waTemplateLang,
+          params: [waTemplateParam1, waTemplateParam2],
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok || !json.ok) {
+        setWaError(JSON.stringify(json.error || json.details || json));
+        return;
+      }
+
+      setWaTemplateResult(json);
+    } catch (e) {
+      setWaError(e.message);
+    } finally {
+      setWaSendingTemplate(false);
     }
-  } catch (e) {
-    setWaTemplatesError(e.message);
-  } finally {
-    setWaTemplatesLoading(false);
-  }
-};
-const sendWaTemplateTest = async () => {
-  try {
-    if (!clientId) return;
-    setWaError("");
-    setWaTemplateResult(null);
-    setWaSendingTemplate(true);
+  };
 
-    if (!waTemplateName.trim()) {
-      setWaError("Pick an approved template first.");
-      return;
-    }
-
-    const res = await fetch(`${BASE_URL}/whatsapp/send-template-test`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        clientId,
-        to: waTestTo,
-        templateName: waTemplateName,
-        languageCode: waTemplateLang,
-        params: [waTemplateParam1, waTemplateParam2],
-      }),
-    });
-
-    const json = await res.json().catch(() => ({}));
-
-    if (!res.ok || !json.ok) {
-      setWaError(JSON.stringify(json.error || json.details || json));
-      return;
-    }
-
-    setWaTemplateResult(json);
-  } catch (e) {
-    setWaError(e.message);
-  } finally {
-    setWaSendingTemplate(false);
-  }
-};
   const connectWhatsApp = () => {
     window.location.href = `${BASE_URL}/auth/whatsapp?clientId=${clientId}`;
-  };
-
-  const loadRecentPosts = async () => {
-    if (!pageId) return;
-    try {
-      setPostsError("");
-      setPostsLoading(true);
-
-      const res = await fetch(
-        `${BASE_URL}/api/engagement/pages/${pageId}/posts?clientId=${encodeURIComponent(clientId)}`,
-        { credentials: "include" }
-      );
-
-      const json = await res.json().catch(() => ({}));
-
-      if (!res.ok || !json.ok) {
-        setPostsError(JSON.stringify(json.error || json));
-        setPosts([]);
-        return;
-      }
-
-      setPosts(json.data || []);
-    } catch (e) {
-      setPostsError(e.message);
-    } finally {
-      setPostsLoading(false);
-    }
-  };
-
-  const loadComments = async (postId) => {
-    if (!pageId || !postId) return;
-    try {
-      setCommentsError("");
-      setCommentsLoading(true);
-      setSelectedPostId(postId);
-
-      const res = await fetch(
-        `${BASE_URL}/api/engagement/posts/${postId}/comments?pageId=${encodeURIComponent(pageId)}&clientId=${encodeURIComponent(
-          clientId
-        )}`,
-        { credentials: "include" }
-      );
-
-      const json = await res.json().catch(() => ({}));
-
-      if (!res.ok || !json.ok) {
-        setCommentsError(JSON.stringify(json.error || json));
-        setComments([]);
-        return;
-      }
-
-      setComments(json.data || []);
-    } catch (e) {
-      setCommentsError(e.message);
-    } finally {
-      setCommentsLoading(false);
-    }
   };
 
   const extractMessagesFromPayload = (payload) => {
@@ -881,44 +704,18 @@ const sendWaTemplateTest = async () => {
     }
   };
 
-  // Chart data
-  useEffect(() => {
-    if (!clientId) return;
+  async function sendReviewTest(pageIdValue, psid) {
+    const r = await fetch(`${BASE_URL}/api/review/send-test`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ pageId: pageIdValue, psid, text: "Your appointment has been scheduled." }),
+    });
 
-    const fetchChartData = async () => {
-      try {
-        const res = await fetch(`${BASE_URL}/api/stats/${clientId}?mode=${mode}`, { credentials: "include" });
-        const contentType = res.headers.get("content-type") || "";
-        const raw = await res.text();
-
-        if (!res.ok) {
-          console.error("Chart API failed:", res.status, raw.slice(0, 300));
-          return;
-        }
-
-        if (!contentType.includes("application/json")) {
-          console.error("Chart API returned non-JSON:", contentType, raw.slice(0, 300));
-          return;
-        }
-
-        const data = JSON.parse(raw);
-        const results = Array.isArray(data) ? data : data.chartResults || [];
-        let normalized = [];
-
-        if (mode === "daily") normalized = results.map((d) => ({ label: `${d._id}:00`, messages: d.count }));
-        else if (mode === "weekly") {
-          const daysMap = { 1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat" };
-          normalized = results.map((d) => ({ label: daysMap[d._id] || d._id, messages: d.count }));
-        } else if (mode === "monthly") normalized = results.map((d) => ({ label: d._id.toString(), messages: d.count }));
-
-        setChartData(normalized);
-      } catch (err) {
-        console.error("Error fetching chart data:", err);
-      }
-    };
-
-    fetchChartData();
-  }, [mode, clientId]);
+    const data = await r.json().catch(() => ({}));
+    if (data.ok) alert("Sent ✅");
+    else alert("Failed ❌ (check server logs)");
+  }
 
   const fetchHandoverStatus = async () => {
     try {
@@ -954,43 +751,6 @@ const sendWaTemplateTest = async () => {
       console.error("Error fetching stats:", err);
     }
   }
-
-  const handleLogout = async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/api/logout`, { method: "POST", credentials: "include" });
-      if (res.ok) navigate("/");
-      else console.error("Logout failed");
-    } catch (err) {
-      console.error("Error logging out:", err);
-    }
-  };
-
-  const exportConvos = (convos, format = "json") => {
-    if (!convos || !convos.length) return;
-    let dataStr = "";
-    let fileName = "";
-
-    if (format === "json") {
-      dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(convos, null, 2));
-      fileName = "conversations.json";
-    } else {
-      const rows = [];
-      convos.forEach((c, idx) => {
-        (c.history || []).forEach((msg) => {
-          rows.push([idx, msg.role, String(msg.content || "").replace(/,/g, " ")]);
-        });
-      });
-      dataStr = "data:text/csv;charset=utf-8," + encodeURIComponent(rows.map((r) => r.join(",")).join("\n"));
-      fileName = "conversations.csv";
-    }
-
-    const dl = document.createElement("a");
-    dl.setAttribute("href", dataStr);
-    dl.setAttribute("download", fileName);
-    document.body.appendChild(dl);
-    dl.click();
-    dl.remove();
-  };
 
   async function fetchConversationStats() {
     try {
@@ -1035,19 +795,101 @@ const sendWaTemplateTest = async () => {
       const query = selectedSource === "all" ? "" : `?source=${selectedSource}`;
       const res = await fetch(`${BASE_URL}/api/conversations/${clientId}${query}`, { credentials: "include" });
       const data = await res.json().catch(() => ([]));
-      setCurrentConvos(data || []);
+      setCurrentConvos(Array.isArray(data) ? data : []);
       setShowConvoModal(true);
     } catch (err) {
       console.error("Error fetching client conversations:", err);
     }
   };
 
-  useEffect(() => {
-    if (showConvoModal) viewConvos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSource, showConvoModal]);
+  const resumeMessengerConversation = async (convo) => {
+    const userId = convo?.userId || convo?.psid || convo?.user;
+    const actionKey = `${convo.pageId || pageId}:${userId}`;
 
-  const { used, quota } = stats;
+    try {
+      setConvoActionLoading((prev) => ({ ...prev, [actionKey]: true }));
+
+      const res = await fetch(`${BASE_URL}/messenger/resume-conversation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          pageId: convo?.pageId || pageId,
+          userId,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok || !json.ok) {
+        alert(json?.error || "Could not resume conversation.");
+        return;
+      }
+
+      setCurrentConvos((prev) =>
+        prev.map((item) =>
+          (item._id && convo._id && item._id === convo._id) ||
+          (item.pageId === convo.pageId && (item.userId || item.psid) === (convo.userId || convo.psid))
+            ? {
+                ...item,
+                humanEscalation: false,
+                botResumeAt: null,
+                resumedBy: "dashboard",
+                resumedAt: new Date().toISOString(),
+              }
+            : item
+        )
+      );
+
+      await fetchConversationStats();
+      await fetchStats();
+    } catch (err) {
+      console.error("resumeMessengerConversation error:", err);
+      alert("Could not resume conversation.");
+    } finally {
+      setConvoActionLoading((prev) => ({ ...prev, [actionKey]: false }));
+    }
+  };
+
+  const exportConvos = (convos, format = "json") => {
+    if (!convos || !convos.length) return;
+    let dataStr = "";
+    let fileName = "";
+
+    if (format === "json") {
+      dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(convos, null, 2));
+      fileName = "conversations.json";
+    } else {
+      const rows = [];
+      convos.forEach((c, idx) => {
+        (c.history || []).forEach((msg) => {
+          rows.push([idx, c.source || "", msg.role, String(msg.content || "").replace(/,/g, " ")]);
+        });
+      });
+      dataStr = "data:text/csv;charset=utf-8," + encodeURIComponent(rows.map((r) => r.join(",")).join("\n"));
+      fileName = "conversations.csv";
+    }
+
+    const dl = document.createElement("a");
+    dl.setAttribute("href", dataStr);
+    dl.setAttribute("download", fileName);
+    document.body.appendChild(dl);
+    dl.click();
+    dl.remove();
+  };
+
+  const handleLogout = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/api/logout`, { method: "POST", credentials: "include" });
+      if (res.ok) navigate("/");
+      else console.error("Logout failed");
+    } catch (err) {
+      console.error("Error logging out:", err);
+    }
+  };
+
+  const used = stats.used;
+  const quota = stats.quota;
   const remaining = quota - used;
 
   const formatDateTime = (iso) => {
@@ -1080,7 +922,6 @@ const sendWaTemplateTest = async () => {
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
-        {/* Header */}
         <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm">
           <div>
             <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">Client Dashboard</h1>
@@ -1088,22 +929,15 @@ const sendWaTemplateTest = async () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="text-right">
-              <div className="text-sm text-slate-500">Logged in </div>
-         
-            </div>
-
             <Button className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition" onClick={handleLogout}>
               Logout
             </Button>
           </div>
         </header>
 
-        {/* ✅ Build Bot Gate */}
         <Card className="p-4 border-l-4 border-slate-900">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Bot Setup</CardTitle>
-
             <div className={`text-xs px-2 py-1 rounded border ${buildBadgeClass()}`}>
               {buildBadge()} • v{Number(knowledgeVersion || 0)}
             </div>
@@ -1112,7 +946,7 @@ const sendWaTemplateTest = async () => {
           <CardContent className="space-y-3">
             <p className="text-sm text-slate-600">
               Add your business data once. We’ll convert it into knowledge chunks to power your chatbot. After it’s built,
-              connections (Facebook / Instagram / WhatsApp) are unlocked.
+              connections are unlocked.
             </p>
 
             {!botReady ? (
@@ -1124,24 +958,25 @@ const sendWaTemplateTest = async () => {
                 ✅ Bot is built. Connections are unlocked.
               </div>
             )}
-<div className="flex items-center justify-between border rounded-lg p-3 bg-slate-50">
-  <div>
-    <div className="text-sm font-medium text-slate-800">Replace old knowledge</div>
-    <div className="text-xs text-slate-600">
-      If ON, we wipe old saved files + chunks first (prevents pharmacy inheriting yesterday’s real-estate data).
-    </div>
-  </div>
 
-  <label className="flex items-center gap-2 text-sm">
-    <input
-      type="checkbox"
-      checked={replaceOldKnowledge}
-      onChange={(e) => setReplaceOldKnowledge(e.target.checked)}
-    />
-    ON
-  </label>
-</div>
-            {/* ✅ Coverage info (this is what should be shown instead of botType select) */}
+            <div className="flex items-center justify-between border rounded-lg p-3 bg-slate-50">
+              <div>
+                <div className="text-sm font-medium text-slate-800">Replace old knowledge</div>
+                <div className="text-xs text-slate-600">
+                  If ON, we wipe old saved files + chunks first to prevent mixed business data.
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={replaceOldKnowledge}
+                  onChange={(e) => setReplaceOldKnowledge(e.target.checked)}
+                />
+                ON
+              </label>
+            </div>
+
             {botReady ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="border rounded-lg bg-white p-3">
@@ -1193,13 +1028,11 @@ const sendWaTemplateTest = async () => {
             </div>
 
             <div className="text-xs text-slate-500">
-              Tip: Quick Form for basics. Paste Text / Upload for long data (prices, services, FAQ, policies, listings).
-              Use headings like <b>## FAQs</b> or separators like <b>---</b> between items.
+              Tip: Quick Form for basics. Paste Text / Upload for long data. Use headings like <b>## FAQs</b> or separators like <b>---</b> between items.
             </div>
           </CardContent>
         </Card>
 
-        {/* ✅ Warnings / Health */}
         <Card className="p-4 border-l-4 border-slate-700">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">System Warnings</CardTitle>
@@ -1238,7 +1071,6 @@ const sendWaTemplateTest = async () => {
           </CardContent>
         </Card>
 
-        {/* Connect Facebook Page */}
         <Card className="p-4 border-l-4 border-blue-600">
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Facebook Page Connection</CardTitle>
@@ -1277,91 +1109,6 @@ const sendWaTemplateTest = async () => {
               Connect Facebook Page
             </Button>
 
-            {/* Page Engagement */}
-            <Card className="p-4 border-l-4 border-purple-600">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">Page Engagement (Posts & Comments)</CardTitle>
-              </CardHeader>
-
-              <CardContent className="space-y-3">
-                <p className="text-sm text-slate-600">
-                  Reads your Page posts and comments to manage engagement in one dashboard.
-                </p>
-
-                {!pageId ? (
-                  <div className="text-sm text-slate-500">Connect your Page first to load posts and comments.</div>
-                ) : (
-                  <>
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={loadRecentPosts} disabled={postsLoading}>
-                        {postsLoading ? "Loading posts..." : "Load recent posts"}
-                      </Button>
-                    </div>
-
-                    {postsError ? <div className="text-xs text-red-600 break-words">Failed to load posts: {postsError}</div> : null}
-
-                    <div className="space-y-2">
-                      {(posts || []).map((p) => (
-                        <div key={p.id} className="border rounded-lg bg-white p-3">
-                          <div className="text-xs text-slate-500">
-                            {p.created_time ? new Date(p.created_time).toLocaleString() : "—"}
-                          </div>
-
-                          <div className="text-sm text-slate-800 mt-1 whitespace-pre-wrap">
-                            {p.message || "(No message text)"}
-                          </div>
-
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {p.permalink_url ? (
-                              <a className="text-xs underline text-slate-600" href={p.permalink_url} target="_blank" rel="noreferrer">
-                                Open on Facebook
-                              </a>
-                            ) : null}
-
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => loadComments(p.id)}
-                              disabled={commentsLoading && selectedPostId === p.id}
-                            >
-                              {commentsLoading && selectedPostId === p.id ? "Loading comments..." : "View comments"}
-                            </Button>
-                          </div>
-
-                          {selectedPostId === p.id ? (
-                            <div className="mt-3 space-y-2">
-                              {commentsError ? (
-                                <div className="text-xs text-red-600 break-words">Failed to load comments: {commentsError}</div>
-                              ) : null}
-
-                              {(comments || []).length ? (
-                                comments.map((c) => (
-                                  <div key={c.id} className="text-sm bg-slate-50 border rounded p-2">
-                                    <div className="text-xs text-slate-500">
-                                      {c.from?.name ? `From: ${c.from.name}` : "From: (hidden)"} •{" "}
-                                      {c.created_time ? new Date(c.created_time).toLocaleString() : "—"}
-                                    </div>
-                                    <div className="mt-1 text-slate-800 whitespace-pre-wrap">{c.message || "(No text)"}</div>
-                                  </div>
-                                ))
-                              ) : (
-                                <div className="text-sm text-slate-500">{commentsLoading ? "Loading..." : "No comments found."}</div>
-                              )}
-                            </div>
-                          ) : null}
-                        </div>
-                      ))}
-
-                      {!postsLoading && pageId && (!posts || posts.length === 0) ? (
-                        <div className="text-sm text-slate-500">No posts loaded yet. Click “Load recent posts”.</div>
-                      ) : null}
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Webhook Subscription */}
             <div className="mt-4 border rounded-xl p-4 bg-slate-50">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="min-w-[240px]">
@@ -1404,11 +1151,7 @@ const sendWaTemplateTest = async () => {
                   <div className="font-medium mt-2">
                     {(webhookStatus.webhookFields || []).length ? (
                       showMessagesOnly ? (
-                        webhookStatus.webhookFields.includes("messages") ? (
-                          "messages"
-                        ) : (
-                          "—"
-                        )
+                        webhookStatus.webhookFields.includes("messages") ? "messages" : "—"
                       ) : (
                         webhookStatus.webhookFields.join(", ")
                       )
@@ -1434,317 +1177,182 @@ const sendWaTemplateTest = async () => {
           </CardContent>
         </Card>
 
-        {/* ✅ Instagram Proof Card */}
-        <Card className="p-4 border-l-4 border-pink-600">
+        <Card className="p-4 border-l-4 border-emerald-600">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold">Instagram Connection (Review Proof)</CardTitle>
+            <CardTitle className="text-lg font-semibold">WhatsApp Connection (Embedded Signup)</CardTitle>
           </CardHeader>
 
           <CardContent className="space-y-3">
             {!botReady ? (
-              <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">🔒 {connectDisabledReason}</div>
+              <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+                🔒 {connectDisabledReason}
+              </div>
             ) : null}
 
-            <p className="text-sm text-slate-600">
-              Proves <b>instagram_basic</b> and <b>instagram_manage_messages</b> using dashboard actions.
-            </p>
+            <p className="text-sm text-slate-600">Connect WhatsApp via Meta Embedded Signup.</p>
 
-            {ig.igId || ig.igUsername || ig.igProfilePicUrl ? (
-              <div className="flex items-center gap-3 border rounded-lg bg-white p-3">
-                {ig.igProfilePicUrl ? <img src={ig.igProfilePicUrl} alt="IG profile" className="w-12 h-12 rounded-full border" /> : null}
-
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-slate-900">Instagram: @{ig.igUsername || "unknown"}</div>
-                  <div className="text-xs text-slate-500">
-                    IG ID: {ig.igId || "—"} {ig.igName ? `• Name: ${ig.igName}` : ""}
-                  </div>
+            {wa.connected ? (
+              <div className="border rounded-lg bg-white p-3 text-sm">
+                <div>
+                  <b>Status:</b> ✅ Connected
                 </div>
-
-                <Button variant="outline" onClick={fetchClientPageConnection}>
-                  Refresh
-                </Button>
+                <div>
+                  <b>WABA ID:</b> {wa.wabaId || "—"}
+                </div>
+                <div>
+                  <b>Phone Number ID:</b> {wa.phoneNumberId || "—"}
+                </div>
+                <div>
+                  <b>Display Phone:</b> {wa.displayPhone || "—"}
+                </div>
               </div>
             ) : (
-              <div className="text-sm text-slate-500">No Instagram professional account detected on this Page yet.</div>
+              <div className="text-sm text-slate-500">Not connected yet.</div>
             )}
 
+            {waError ? <div className="text-xs text-red-600 break-words">{waError}</div> : null}
+
             <div className="flex gap-2 flex-wrap">
-              <Button variant="outline" onClick={fetchIgProfile} disabled={!clientId || igLoadingProfile || !botReady}>
-                {igLoadingProfile ? "Fetching profile..." : "Fetch IG Profile (Live)"}
+              <Button
+                onClick={connectWhatsApp}
+                disabled={!clientId || waLoading || !botReady}
+                title={!botReady ? connectDisabledReason : ""}
+              >
+                {waLoading ? "Connecting..." : "Connect WhatsApp"}
               </Button>
 
-              <Button variant="outline" onClick={fetchIgMedia} disabled={!clientId || igLoadingMedia || !botReady}>
-                {igLoadingMedia ? "Loading media..." : "Load Media List (Live)"}
+              <Button variant="outline" onClick={fetchWhatsAppStatus} disabled={!clientId}>
+                Refresh Status
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={fetchWaTemplates}
+                disabled={!clientId || !wa.connected || waTemplatesLoading || !botReady}
+              >
+                {waTemplatesLoading ? "Syncing..." : "Sync Templates"}
               </Button>
             </div>
 
-            {igError ? <div className="text-xs text-red-600 break-words">IG error: {igError}</div> : null}
+            <div className="border rounded-lg bg-white p-3 space-y-2">
+              <div className="text-sm font-medium text-slate-800">Send an Approved Template (App Review Proof)</div>
 
-            {igProfile ? (
-              <div className="border rounded-lg bg-slate-50 p-3">
-                <div className="text-sm font-medium text-slate-800">Live Profile Fields</div>
-                <div className="text-xs text-slate-600 mt-2 space-y-1">
-                  <div>
-                    <b>username:</b> {igProfile.username}
-                  </div>
-                  <div>
-                    <b>name:</b> {igProfile.name}
-                  </div>
-                  <div>
-                    <b>biography:</b> {igProfile.biography}
-                  </div>
-                  <div>
-                    <b>followers_count:</b> {igProfile.followers_count}
-                  </div>
-                  <div>
-                    <b>media_count:</b> {igProfile.media_count}
-                  </div>
+              <div className="text-xs text-slate-500">
+                Required: pick an <b>APPROVED</b> template, send from this UI, then show it delivered in the native WhatsApp app.
+              </div>
+
+              {waTemplatesError ? <div className="text-xs text-red-600 break-words">{waTemplatesError}</div> : null}
+
+              <label className="text-xs text-slate-600">Approved template</label>
+              <select
+                value={waTemplateName}
+                onChange={(e) => setWaTemplateName(e.target.value)}
+                className="border rounded p-2 text-sm w-full"
+                disabled={!botReady || !wa.connected}
+              >
+                <option value="">Select template...</option>
+                {(waTemplates || [])
+                  .filter((t) => String(t.status || "").toUpperCase() === "APPROVED")
+                  .map((t) => (
+                    <option key={`${t.name}:${t.language || ""}`} value={t.name}>
+                      {t.name} (APPROVED){t.language ? ` • ${t.language}` : ""}
+                    </option>
+                  ))}
+              </select>
+
+              <label className="text-xs text-slate-600">Language code</label>
+              <input
+                value={waTemplateLang}
+                onChange={(e) => setWaTemplateLang(e.target.value)}
+                placeholder="en_US"
+                className="border rounded p-2 text-sm w-full"
+                disabled={!botReady || !wa.connected}
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-slate-600">Param {"{{1}}"}</label>
+                  <input
+                    value={waTemplateParam1}
+                    onChange={(e) => setWaTemplateParam1(e.target.value)}
+                    className="border rounded p-2 text-sm w-full"
+                    disabled={!botReady || !wa.connected}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-slate-600">Param {"{{2}}"}</label>
+                  <input
+                    value={waTemplateParam2}
+                    onChange={(e) => setWaTemplateParam2(e.target.value)}
+                    className="border rounded p-2 text-sm w-full"
+                    disabled={!botReady || !wa.connected}
+                  />
                 </div>
               </div>
-            ) : null}
 
-            {igMedia?.length ? (
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-slate-800">Media List (shown in-app)</div>
-                {igMedia.slice(0, 6).map((m) => (
-                  <div key={m.id} className="border rounded-lg bg-white p-3">
-                    <div className="text-xs text-slate-500">
-                      Media ID: {m.id} • {m.media_type}
-                    </div>
-                    {m.media_url ? <img src={m.media_url} alt="media" className="mt-2 max-h-64 rounded border" /> : null}
-                    <div className="text-sm text-slate-800 mt-2 whitespace-pre-wrap">{m.caption ? m.caption.slice(0, 160) : "(No caption)"}</div>
-                    {m.permalink ? (
-                      <a className="text-xs underline text-slate-600" href={m.permalink} target="_blank" rel="noreferrer">
-                        Open on Instagram
-                      </a>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {/* Send DM */}
-            <div className="border rounded-lg bg-white p-3 space-y-2">
-              <div className="text-sm font-medium text-slate-800">Send a DM (Review Proof)</div>
-
-              <div className="text-xs text-slate-500">Tip: If recipient empty, server uses <b>lastIgSenderId</b>.</div>
-
+              <label className="text-xs text-slate-600">Recipient (test number)</label>
               <input
-                value={igDmRecipientId}
-                onChange={(e) => setIgDmRecipientId(e.target.value)}
-                placeholder="Recipient ID (optional)"
+                value={waTestTo}
+                onChange={(e) => setWaTestTo(e.target.value)}
+                placeholder="Recipient number (e.g. +2011xxxxxxx)"
                 className="border rounded p-2 text-sm w-full"
                 disabled={!botReady}
               />
 
+              <div className="flex gap-2 flex-wrap items-center">
+                <Button
+                  onClick={sendWaTemplateTest}
+                  disabled={waSendingTemplate || !wa.connected || !botReady || !waTestTo.trim() || !waTemplateName.trim()}
+                >
+                  {waSendingTemplate ? "Sending..." : "Send Template Message"}
+                </Button>
+
+                {waTemplateResult?.ok ? <div className="text-xs text-green-700">Sent ✅</div> : null}
+              </div>
+
+              {waTemplateResult ? (
+                <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
+                  {JSON.stringify(waTemplateResult, null, 2)}
+                </pre>
+              ) : null}
+            </div>
+
+            <div className="border rounded-lg bg-white p-3 space-y-2">
+              <div className="text-sm font-medium text-slate-800">Send a WhatsApp Text Message (Debug Only)</div>
+
+              <div className="text-xs text-slate-500">
+                App Review usually wants <b>template</b> sending proof. Use this only for internal testing.
+              </div>
+
               <textarea
-                value={igDmText}
-                onChange={(e) => setIgDmText(e.target.value)}
+                value={waTestText}
+                onChange={(e) => setWaTestText(e.target.value)}
                 placeholder="Message text"
                 className="border rounded p-2 text-sm w-full min-h-[90px]"
                 disabled={!botReady}
               />
 
               <div className="flex gap-2 flex-wrap items-center">
-                <Button onClick={sendIgDm} disabled={igSendingDm || !igDmText.trim() || !botReady}>
-                  {igSendingDm ? "Sending..." : "Send DM"}
+                <Button
+                  onClick={sendWaTest}
+                  disabled={waSendingTest || !waTestTo.trim() || !waTestText.trim() || !wa.connected || !botReady}
+                >
+                  {waSendingTest ? "Sending..." : "Send WhatsApp Text"}
                 </Button>
 
-                {igDmResult?.ok ? <div className="text-xs text-green-700">Sent ✅</div> : null}
+                {waTestResult?.ok ? <div className="text-xs text-green-700">Sent ✅</div> : null}
               </div>
 
-              {igDmResult ? <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">{JSON.stringify(igDmResult, null, 2)}</pre> : null}
+              {waTestResult ? (
+                <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
+                  {JSON.stringify(waTestResult, null, 2)}
+                </pre>
+              ) : null}
             </div>
           </CardContent>
         </Card>
 
-        {/* WhatsApp */}
-        <Card className="p-4 border-l-4 border-emerald-600">
-  <CardHeader>
-    <CardTitle className="text-lg font-semibold">WhatsApp Connection (Embedded Signup)</CardTitle>
-  </CardHeader>
-
-  <CardContent className="space-y-3">
-    {!botReady ? (
-      <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
-        🔒 {connectDisabledReason}
-      </div>
-    ) : null}
-
-    <p className="text-sm text-slate-600">Connect WhatsApp via Meta Embedded Signup.</p>
-
-    {wa.connected ? (
-      <div className="border rounded-lg bg-white p-3 text-sm">
-        <div>
-          <b>Status:</b> ✅ Connected
-        </div>
-        <div>
-          <b>WABA ID:</b> {wa.wabaId || "—"}
-        </div>
-        <div>
-          <b>Phone Number ID:</b> {wa.phoneNumberId || "—"}
-        </div>
-        <div>
-          <b>Display Phone:</b> {wa.displayPhone || "—"}
-        </div>
-      </div>
-    ) : (
-      <div className="text-sm text-slate-500">Not connected yet.</div>
-    )}
-
-    {waError ? <div className="text-xs text-red-600 break-words">{waError}</div> : null}
-
-    <div className="flex gap-2 flex-wrap">
-      <Button
-        onClick={connectWhatsApp}
-        disabled={!clientId || waLoading || !botReady}
-        title={!botReady ? connectDisabledReason : ""}
-      >
-        {waLoading ? "Connecting..." : "Connect WhatsApp"}
-      </Button>
-
-      <Button variant="outline" onClick={fetchWhatsAppStatus} disabled={!clientId}>
-        Refresh Status
-      </Button>
-
-      {/* ✅ Optional: Auto-load templates after refresh */}
-      <Button
-        variant="outline"
-        onClick={fetchWaTemplates}
-        disabled={!clientId || !wa.connected || waTemplatesLoading || !botReady}
-      >
-        {waTemplatesLoading ? "Syncing..." : "Sync Templates"}
-      </Button>
-    </div>
-
-    {/* ✅ Templates Section (APP REVIEW PROOF) */}
-    <div className="border rounded-lg bg-white p-3 space-y-2">
-      <div className="text-sm font-medium text-slate-800">Send an Approved Template (App Review Proof)</div>
-
-      <div className="text-xs text-slate-500">
-        Required: pick an <b>APPROVED</b> template, send from this UI, then show it delivered in the native WhatsApp app.
-      </div>
-
-      {waTemplatesError ? <div className="text-xs text-red-600 break-words">{waTemplatesError}</div> : null}
-
-      <label className="text-xs text-slate-600">Approved template</label>
-      <select
-        value={waTemplateName}
-        onChange={(e) => setWaTemplateName(e.target.value)}
-        className="border rounded p-2 text-sm w-full"
-        disabled={!botReady || !wa.connected}
-      >
-        <option value="">Select template...</option>
-        {(waTemplates || [])
-          .filter((t) => String(t.status || "").toUpperCase() === "APPROVED")
-          .map((t) => (
-            <option key={`${t.name}:${t.language || ""}`} value={t.name}>
-              {t.name} (APPROVED){t.language ? ` • ${t.language}` : ""}
-            </option>
-          ))}
-      </select>
-
-      <label className="text-xs text-slate-600">Language code</label>
-      <input
-        value={waTemplateLang}
-        onChange={(e) => setWaTemplateLang(e.target.value)}
-        placeholder="en_US"
-        className="border rounded p-2 text-sm w-full"
-        disabled={!botReady || !wa.connected}
-      />
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        <div>
-       <label className="text-xs text-slate-600">Param {"{{1}}"}</label>
-          <input
-            value={waTemplateParam1}
-            onChange={(e) => setWaTemplateParam1(e.target.value)}
-            className="border rounded p-2 text-sm w-full"
-            disabled={!botReady || !wa.connected}
-          />
-        </div>
-
-        <div>
-       <label className="text-xs text-slate-600">Param {"{{2}}"}</label>
-          <input
-            value={waTemplateParam2}
-            onChange={(e) => setWaTemplateParam2(e.target.value)}
-            className="border rounded p-2 text-sm w-full"
-            disabled={!botReady || !wa.connected}
-          />
-        </div>
-      </div>
-
-      <label className="text-xs text-slate-600">Recipient (test number)</label>
-      <input
-        value={waTestTo}
-        onChange={(e) => setWaTestTo(e.target.value)}
-        placeholder="Recipient number (e.g. +2011xxxxxxx)"
-        className="border rounded p-2 text-sm w-full"
-        disabled={!botReady}
-      />
-
-      <div className="flex gap-2 flex-wrap items-center">
-        <Button
-          onClick={sendWaTemplateTest}
-          disabled={
-            waSendingTemplate ||
-            !wa.connected ||
-            !botReady ||
-            !waTestTo.trim() ||
-            !waTemplateName.trim()
-          }
-        >
-          {waSendingTemplate ? "Sending..." : "Send Template Message"}
-        </Button>
-
-        {waTemplateResult?.ok ? <div className="text-xs text-green-700">Sent ✅</div> : null}
-      </div>
-
-      {waTemplateResult ? (
-        <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
-          {JSON.stringify(waTemplateResult, null, 2)}
-        </pre>
-      ) : null}
-    </div>
-
-    {/* ✅ OPTIONAL: keep free-text test for debugging (NOT App Review proof) */}
-    <div className="border rounded-lg bg-white p-3 space-y-2">
-      <div className="text-sm font-medium text-slate-800">Send a WhatsApp Text Message (Debug Only)</div>
-
-      <div className="text-xs text-slate-500">
-        App Review usually wants <b>template</b> sending proof. Use this only for internal testing.
-      </div>
-
-      <textarea
-        value={waTestText}
-        onChange={(e) => setWaTestText(e.target.value)}
-        placeholder="Message text"
-        className="border rounded p-2 text-sm w-full min-h-[90px]"
-        disabled={!botReady}
-      />
-
-      <div className="flex gap-2 flex-wrap items-center">
-        <Button
-          onClick={sendWaTest}
-          disabled={waSendingTest || !waTestTo.trim() || !waTestText.trim() || !wa.connected || !botReady}
-        >
-          {waSendingTest ? "Sending..." : "Send WhatsApp Text"}
-        </Button>
-
-        {waTestResult?.ok ? <div className="text-xs text-green-700">Sent ✅</div> : null}
-      </div>
-
-      {waTestResult ? (
-        <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
-          {JSON.stringify(waTestResult, null, 2)}
-        </pre>
-      ) : null}
-    </div>
-  </CardContent>
-</Card>
-
-        {/* Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
           <Card className="hover:shadow-md transition-shadow duration-150">
             <CardHeader>
@@ -1786,18 +1394,10 @@ const sendWaTemplateTest = async () => {
               </p>
 
               <div className="space-y-1 text-sm mt-3">
-                <p>
-                  <span className="font-medium">Web:</span> {conversationStats.bySource?.web ?? 0}
-                </p>
-                <p>
-                  <span className="font-medium">Messenger:</span> {conversationStats.bySource?.messenger ?? 0}
-                </p>
-                <p>
-                  <span className="font-medium">Instagram:</span> {conversationStats.bySource?.instagram ?? 0}
-                </p>
-                <p>
-                  <span className="font-medium">WhatsApp:</span> {conversationStats.bySource?.whatsapp ?? 0}
-                </p>
+                <p><span className="font-medium">Web:</span> {conversationStats.bySource?.web ?? 0}</p>
+                <p><span className="font-medium">Messenger:</span> {conversationStats.bySource?.messenger ?? 0}</p>
+                <p><span className="font-medium">Instagram:</span> {conversationStats.bySource?.instagram ?? 0}</p>
+                <p><span className="font-medium">WhatsApp:</span> {conversationStats.bySource?.whatsapp ?? 0}</p>
               </div>
             </CardContent>
           </Card>
@@ -1825,9 +1425,20 @@ const sendWaTemplateTest = async () => {
               <div className="text-3xl font-bold text-slate-900">{orderRequests}</div>
             </CardContent>
           </Card>
+
+          <Card className="hover:shadow-md transition-shadow duration-150">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3 text-slate-700">
+                <Users size={18} className="text-violet-500" />
+                <div className="text-sm">Tour Requests</div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-center">
+              <div className="text-3xl font-bold text-slate-900">{tourRequests}</div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Chart */}
         <Card className="p-5">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-3">
@@ -1864,12 +1475,20 @@ const sendWaTemplateTest = async () => {
           </div>
         </Card>
 
-        <input value={testPsid} onChange={(e) => setTestPsid(e.target.value)} className="border rounded p-2 text-sm w-full" />
-        <Button onClick={() => sendReviewTest(pageId, testPsid)} disabled={!botReady} title={!botReady ? connectDisabledReason : ""}>
-          Send test message (Meta Send API)
-        </Button>
+        <Card className="p-5">
+          <div className="flex flex-col gap-3">
+            <h2 className="text-lg font-semibold text-slate-900">Send test message (Meta Send API)</h2>
+            <input
+              value={testPsid}
+              onChange={(e) => setTestPsid(e.target.value)}
+              className="border rounded p-2 text-sm w-full"
+            />
+            <Button onClick={() => sendReviewTest(pageId, testPsid)} disabled={!botReady} title={!botReady ? connectDisabledReason : ""}>
+              Send test message
+            </Button>
+          </div>
+        </Card>
 
-        {/* Conversations Section */}
         <Card className="p-5">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
             <div className="flex items-center gap-3">
@@ -1896,10 +1515,11 @@ const sendWaTemplateTest = async () => {
             </div>
           </div>
 
-          <div className="text-sm text-slate-500">Click "View All" to open the conversations modal with export options.</div>
+          <div className="text-sm text-slate-500">
+            Open the modal to view conversation details. Messenger conversations in human mode get a per-conversation resume button.
+          </div>
         </Card>
 
-        {/* Agent Handover */}
         <Card className="p-4 border-l-4 border-blue-500">
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Agent Handover</CardTitle>
@@ -1945,7 +1565,6 @@ const sendWaTemplateTest = async () => {
         </Card>
       </div>
 
-      {/* ✅ Build Bot Modal */}
       <Dialog open={buildOpen} onOpenChange={setBuildOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1954,8 +1573,7 @@ const sendWaTemplateTest = async () => {
 
           <div className="space-y-4">
             <div className="text-sm text-slate-600">
-         
-Add your business data and bot behavior. We’ll convert your data into knowledge chunks and use your settings to control how the bot replies.
+              Add your business data and bot behavior. We’ll convert your data into knowledge chunks and use your settings to control how the bot replies.
             </div>
 
             <div className="flex gap-2 flex-wrap">
@@ -2020,31 +1638,31 @@ Add your business data and bot behavior. We’ll convert your data into knowledg
                 <textarea
                   value={botForm.services}
                   onChange={(e) => setBotForm((p) => ({ ...p, services: e.target.value }))}
-                  placeholder="Services (comma separated or bullet points)"
+                  placeholder="Services"
                   className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
                 />
                 <textarea
                   value={botForm.listingsSummary}
                   onChange={(e) => setBotForm((p) => ({ ...p, listingsSummary: e.target.value }))}
-                  placeholder="Items / listings summary (optional: examples, price ranges, categories)"
+                  placeholder="Items / listings summary"
                   className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
                 />
                 <textarea
                   value={botForm.paymentPlans}
                   onChange={(e) => setBotForm((p) => ({ ...p, paymentPlans: e.target.value }))}
-                  placeholder="Payment / pricing plans (optional)"
+                  placeholder="Payment / pricing plans"
                   className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
                 />
                 <textarea
                   value={botForm.policies}
                   onChange={(e) => setBotForm((p) => ({ ...p, policies: e.target.value }))}
-                  placeholder="Policies (optional)"
+                  placeholder="Policies"
                   className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
                 />
                 <textarea
                   value={botForm.faqs}
                   onChange={(e) => setBotForm((p) => ({ ...p, faqs: e.target.value }))}
-                  placeholder="FAQs (separate by blank line for best results)"
+                  placeholder="FAQs"
                   className="border rounded p-2 text-sm w-full min-h-[120px] md:col-span-2"
                 />
               </div>
@@ -2088,9 +1706,8 @@ Add your business data and bot behavior. We’ll convert your data into knowledg
         </DialogContent>
       </Dialog>
 
-      {/* Conversations Modal */}
       <Dialog open={showConvoModal} onOpenChange={setShowConvoModal}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto top-1/2 left-1/2 translate-x-[-50%] translate-y-[-50%]">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto top-1/2 left-1/2 translate-x-[-50%] translate-y-[-50%]">
           <DialogHeader>
             <DialogTitle>Client Conversations</DialogTitle>
 
@@ -2115,23 +1732,67 @@ Add your business data and bot behavior. We’ll convert your data into knowledg
 
           <div className="space-y-3 max-h-[60vh] overflow-y-auto px-1 pb-4">
             {currentConvos.length ? (
-              currentConvos.map((c, idx) => (
-                <div key={idx} className="border rounded-lg p-3 bg-white shadow-sm">
-                  <p className="text-red-500 font-semibold mb-1">Conversation #{idx + 1}</p>
+              currentConvos.map((c, idx) => {
+                const convoUserId = c.user || c.userId || c.psid || "Unknown user";
+                const convoKey = `${c.pageId || pageId}:${c.userId || c.psid || c.user || idx}`;
+                const isMessenger = c.source === "messenger";
+                const isHumanMode = Boolean(c.humanEscalation);
 
-                  <p className="font-medium">{c.user || c.userId || c.psid || "Unknown user"}</p>
-                  <div className="pl-2 space-y-2 mt-2">
-                    {c.history?.map((msg, i) => (
-                      <p key={i} className="text-sm">
-                        <strong className={msg.role === "user" ? "text-slate-800" : "text-sky-600"}>
-                          {msg.role === "user" ? "User" : "Assistant"}:
-                        </strong>{" "}
-                        {msg.content}
-                      </p>
-                    )) || <p className="text-sm text-gray-400">No messages</p>}
+                return (
+                  <div key={c._id || idx} className="border rounded-lg p-3 bg-white shadow-sm">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                      <div>
+                        <p className="text-red-500 font-semibold mb-1">Conversation #{idx + 1}</p>
+                        <p className="font-medium">{convoUserId}</p>
+                        <div className="text-xs text-slate-500 mt-1">
+                          Source: {c.source || "—"} • Updated: {formatDateTime(c.updatedAt)}
+                        </div>
+                        {isMessenger ? (
+                          <div className="text-xs mt-1">
+                            Status:{" "}
+                            <span className={isHumanMode ? "text-orange-600 font-medium" : "text-green-600 font-medium"}>
+                              {isHumanMode ? "Human escalation active" : "Bot active"}
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {isMessenger ? (
+                        <div className="flex items-center gap-2">
+                          {isHumanMode ? (
+                            <Button
+                              size="sm"
+                              onClick={() => resumeMessengerConversation(c)}
+                              disabled={Boolean(convoActionLoading[convoKey])}
+                            >
+                              {convoActionLoading[convoKey] ? "Resuming..." : "Resume Bot"}
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="outline" disabled>
+                              Bot Active
+                            </Button>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="pl-2 space-y-2 mt-3">
+                      {c.history?.length ? (
+                        c.history.map((msg, i) => (
+                          <p key={i} className="text-sm">
+                            <strong className={msg.role === "user" ? "text-slate-800" : "text-sky-600"}>
+                              {msg.role === "user" ? "User" : "Assistant"}:
+                            </strong>{" "}
+                            {msg.content}
+                          </p>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-400">No messages</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <p className="text-gray-500">No conversations found.</p>
             )}
@@ -2149,7 +1810,6 @@ Add your business data and bot behavior. We’ll convert your data into knowledg
         </DialogContent>
       </Dialog>
 
-      {/* Last Webhook Payload Modal */}
       <Dialog open={showWebhookModal} onOpenChange={setShowWebhookModal}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -2166,7 +1826,11 @@ Add your business data and bot behavior. We’ll convert your data into knowledg
                 Full
               </Button>
 
-              <Button size="sm" variant={payloadViewMode === "messages" ? "default" : "outline"} onClick={() => setPayloadViewMode("messages")}>
+              <Button
+                size="sm"
+                variant={payloadViewMode === "messages" ? "default" : "outline"}
+                onClick={() => setPayloadViewMode("messages")}
+              >
                 Messages only
               </Button>
             </div>
