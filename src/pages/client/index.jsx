@@ -850,7 +850,55 @@ export default function ClientDashboard() {
       setConvoActionLoading((prev) => ({ ...prev, [actionKey]: false }));
     }
   };
+const resumeInstagramConversation = async (convo) => {
+  const userId = convo?.userId || convo?.psid || convo?.user;
+  const igBusinessId = convo?.igBusinessId;
+  const actionKey = `${igBusinessId || "ig"}:${userId}`;
 
+  try {
+    setConvoActionLoading((prev) => ({ ...prev, [actionKey]: true }));
+
+    const res = await fetch(`${BASE_URL}/instagram/resume-conversation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        igBusinessId,
+        userId,
+      }),
+    });
+
+    const json = await res.json().catch(() => ({}));
+
+    if (!res.ok || !json.ok) {
+      alert(json?.error || "Could not resume Instagram conversation.");
+      return;
+    }
+
+    setCurrentConvos((prev) =>
+      prev.map((item) =>
+        (item._id && convo._id && item._id === convo._id) ||
+        (item.igBusinessId === convo.igBusinessId && (item.userId || item.psid) === (convo.userId || convo.psid))
+          ? {
+              ...item,
+              humanEscalation: false,
+              botResumeAt: null,
+              resumedBy: "dashboard",
+              resumedAt: new Date().toISOString(),
+            }
+          : item
+      )
+    );
+
+    await fetchConversationStats();
+    await fetchStats();
+  } catch (err) {
+    console.error("resumeInstagramConversation error:", err);
+    alert("Could not resume Instagram conversation.");
+  } finally {
+    setConvoActionLoading((prev) => ({ ...prev, [actionKey]: false }));
+  }
+};
   const exportConvos = (convos, format = "json") => {
     if (!convos || !convos.length) return;
     let dataStr = "";
@@ -1516,8 +1564,7 @@ export default function ClientDashboard() {
           </div>
 
           <div className="text-sm text-slate-500">
-            Open the modal to view conversation details. Messenger conversations in human mode get a per-conversation resume button.
-          </div>
+           Open the modal to view conversation details. Messenger and Instagram conversations in human mode get a per-conversation resume button.  </div>
         </Card>
 
         <Card className="p-4 border-l-4 border-blue-500">
@@ -1734,9 +1781,15 @@ export default function ClientDashboard() {
             {currentConvos.length ? (
               currentConvos.map((c, idx) => {
                 const convoUserId = c.user || c.userId || c.psid || "Unknown user";
-                const convoKey = `${c.pageId || pageId}:${c.userId || c.psid || c.user || idx}`;
-                const isMessenger = c.source === "messenger";
-                const isHumanMode = Boolean(c.humanEscalation);
+               const convoKey =
+  c.source === "instagram"
+    ? `${c.igBusinessId || "ig"}:${c.userId || c.psid || c.user || idx}`
+    : `${c.pageId || pageId}:${c.userId || c.psid || c.user || idx}`;
+
+const isMessenger = c.source === "messenger";
+const isInstagram = c.source === "instagram";
+const canResume = isMessenger || isInstagram;
+const isHumanMode = Boolean(c.humanEscalation);
 
                 return (
                   <div key={c._id || idx} className="border rounded-lg p-3 bg-white shadow-sm">
@@ -1747,14 +1800,25 @@ export default function ClientDashboard() {
                         <div className="text-xs text-slate-500 mt-1">
                           Source: {c.source || "—"} • Updated: {formatDateTime(c.updatedAt)}
                         </div>
-                        {isMessenger ? (
-                          <div className="text-xs mt-1">
-                            Status:{" "}
-                            <span className={isHumanMode ? "text-orange-600 font-medium" : "text-green-600 font-medium"}>
-                              {isHumanMode ? "Human escalation active" : "Bot active"}
-                            </span>
-                          </div>
-                        ) : null}
+                     {canResume ? (
+  <div className="flex items-center gap-2">
+    {isHumanMode ? (
+      <Button
+        size="sm"
+        onClick={() =>
+          isInstagram ? resumeInstagramConversation(c) : resumeMessengerConversation(c)
+        }
+        disabled={Boolean(convoActionLoading[convoKey])}
+      >
+        {convoActionLoading[convoKey] ? "Resuming..." : "Resume Bot"}
+      </Button>
+    ) : (
+      <Button size="sm" variant="outline" disabled>
+        Bot Active
+      </Button>
+    )}
+  </div>
+) : null}
                       </div>
 
                       {isMessenger ? (
