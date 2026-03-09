@@ -104,7 +104,7 @@ export default function ClientDashboard() {
 
   const [promptSettings, setPromptSettings] = useState({
     tone: "friendly",
-    orderFlowEnabled: false,
+    orderFlowEnabled: true,
     humanEscalationEnabled: true,
     businessType: "default",
   });
