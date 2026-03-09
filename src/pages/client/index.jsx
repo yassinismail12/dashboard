@@ -550,7 +550,7 @@ export default function ClientDashboard() {
 
       setBotForm((prev) => ({
         ...prev,
-        businessName: prev.businessName || data?.businessName || data?.PAGE_NAME || "",
+        businessName: prev.businessName || data?.businessName ||"",
       }));
 
       setCoverageWarnings(Array.isArray(data?.coverageWarnings) ? data.coverageWarnings : []);
