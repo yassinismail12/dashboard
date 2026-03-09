@@ -10,6 +10,38 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 const BASE_URL = "https://serverowned.onrender.com";
 const BOT_TYPE = "default";
 
+const BUSINESS_TYPE_OPTIONS = [
+  { value: "default", label: "General Business" },
+  { value: "restaurant", label: "Restaurant / Cafe / Bakery" },
+  { value: "realestate", label: "Real Estate" },
+  { value: "clinic", label: "Clinic / Dental / Hospital" },
+  { value: "salon", label: "Salon / Spa / Gym" },
+  { value: "ecommerce", label: "E-commerce / Retail / Pharmacy" },
+  { value: "hotel", label: "Hotel / Hostel" },
+  { value: "education", label: "Education / Academy / School" },
+  { value: "automotive", label: "Automotive / Showroom" },
+];
+
+const RAW_SECTION_OPTIONS = [
+  { value: "mixed", label: "Mixed / not sure" },
+  { value: "profile", label: "Business profile / about" },
+  { value: "contact", label: "Contact information" },
+  { value: "hours", label: "Business hours" },
+  { value: "faqs", label: "FAQs" },
+  { value: "offers", label: "Services / offers / pricing" },
+  { value: "menu", label: "Menu" },
+  { value: "products", label: "Products / catalog" },
+  { value: "listings", label: "Listings / properties / items" },
+  { value: "paymentPlans", label: "Payment / installment plans" },
+  { value: "booking", label: "Bookings / appointments" },
+  { value: "team", label: "Team / doctors / staff" },
+  { value: "courses", label: "Courses / programs" },
+  { value: "rooms", label: "Rooms / accommodation" },
+  { value: "delivery", label: "Delivery / shipping" },
+  { value: "policies", label: "Policies" },
+  { value: "other", label: "Other information" },
+];
+
 export default function ClientDashboard() {
   const navigate = useNavigate();
 
@@ -113,18 +145,37 @@ export default function ClientDashboard() {
     businessName: "",
     businessType: "",
     cityArea: "",
+    about: "",
     hours: "",
     phoneWhatsapp: "",
+    email: "",
+    address: "",
     services: "",
+    pricing: "",
+    menu: "",
+    products: "",
     faqs: "",
     listingsSummary: "",
     paymentPlans: "",
+    booking: "",
+    team: "",
+    courses: "",
+    rooms: "",
+    delivery: "",
     policies: "",
   });
 
   const [rawSection, setRawSection] = useState("mixed");
   const [rawText, setRawText] = useState("");
   const [rawFile, setRawFile] = useState(null);
+
+  const effectiveBotType = useMemo(() => {
+    const picked =
+      String(promptSettings.businessType || "").trim() ||
+      String(botForm.businessType || "").trim() ||
+      BOT_TYPE;
+    return picked || "default";
+  }, [promptSettings.businessType, botForm.businessType]);
 
   const connectDisabledReason = useMemo(() => {
     if (!clientId) return "Loading client...";
@@ -244,7 +295,7 @@ export default function ClientDashboard() {
       }
 
       const r2 = await fetch(
-        `${BASE_URL}/api/knowledge/status?clientId=${encodeURIComponent(clientId)}&botType=${encodeURIComponent(BOT_TYPE)}`,
+        `${BASE_URL}/api/knowledge/status?clientId=${encodeURIComponent(clientId)}&botType=${encodeURIComponent(effectiveBotType)}`,
         { credentials: "include" }
       );
       const j2 = await r2.json().catch(() => ({}));
@@ -287,12 +338,23 @@ export default function ClientDashboard() {
           botForm.businessName.trim() ||
           botForm.businessType.trim() ||
           botForm.cityArea.trim() ||
+          botForm.about.trim() ||
           botForm.hours.trim() ||
           botForm.phoneWhatsapp.trim() ||
+          botForm.email.trim() ||
+          botForm.address.trim() ||
           botForm.services.trim() ||
+          botForm.pricing.trim() ||
+          botForm.menu.trim() ||
+          botForm.products.trim() ||
           botForm.faqs.trim() ||
           botForm.listingsSummary.trim() ||
           botForm.paymentPlans.trim() ||
+          botForm.booking.trim() ||
+          botForm.team.trim() ||
+          botForm.courses.trim() ||
+          botForm.rooms.trim() ||
+          botForm.delivery.trim() ||
           botForm.policies.trim();
 
         if (!hasAny) {
@@ -319,12 +381,12 @@ export default function ClientDashboard() {
           buildMode === "form"
             ? {
                 clientId,
-                botType: BOT_TYPE,
+                botType: effectiveBotType,
                 inputType: "form",
                 replace: Boolean(replaceOldKnowledge),
                 promptConfig: {
                   businessName: botForm.businessName,
-                  businessType: botForm.businessType || "default",
+                  businessType: effectiveBotType,
                   tone: promptSettings.tone,
                   humanEscalation: {
                     enabled: promptSettings.humanEscalationEnabled,
@@ -337,20 +399,31 @@ export default function ClientDashboard() {
                 },
                 data: {
                   businessName: botForm.businessName,
-                  businessType: botForm.businessType,
+                  businessType: botForm.businessType || effectiveBotType,
                   cityArea: botForm.cityArea,
+                  about: botForm.about,
                   hours: botForm.hours,
                   phoneWhatsapp: botForm.phoneWhatsapp,
+                  email: botForm.email,
+                  address: botForm.address,
                   services: botForm.services,
+                  pricing: botForm.pricing,
+                  menu: botForm.menu,
+                  products: botForm.products,
                   faqs: botForm.faqs,
                   listingsSummary: botForm.listingsSummary,
                   paymentPlans: botForm.paymentPlans,
+                  booking: botForm.booking,
+                  team: botForm.team,
+                  courses: botForm.courses,
+                  rooms: botForm.rooms,
+                  delivery: botForm.delivery,
                   policies: botForm.policies,
                 },
               }
             : {
                 clientId,
-                botType: BOT_TYPE,
+                botType: effectiveBotType,
                 inputType: "text",
                 replace: Boolean(replaceOldKnowledge),
                 section: rawSection,
@@ -378,7 +451,7 @@ export default function ClientDashboard() {
           const fd = new FormData();
           fd.append("clientId", clientId);
           fd.append("section", rawSection);
-          fd.append("botType", BOT_TYPE);
+          fd.append("botType", effectiveBotType);
           fd.append("replace", String(Boolean(replaceOldKnowledge)));
           fd.append("file", rawFile);
 
@@ -402,7 +475,7 @@ export default function ClientDashboard() {
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            botType: BOT_TYPE,
+            botType: effectiveBotType,
             replace: Boolean(replaceOldKnowledge),
           }),
         });
@@ -850,55 +923,57 @@ export default function ClientDashboard() {
       setConvoActionLoading((prev) => ({ ...prev, [actionKey]: false }));
     }
   };
-const resumeInstagramConversation = async (convo) => {
-  const userId = convo?.userId || convo?.psid || convo?.user;
-  const igBusinessId = convo?.igBusinessId;
-  const actionKey = `${igBusinessId || "ig"}:${userId}`;
 
-  try {
-    setConvoActionLoading((prev) => ({ ...prev, [actionKey]: true }));
+  const resumeInstagramConversation = async (convo) => {
+    const userId = convo?.userId || convo?.psid || convo?.user;
+    const igBusinessId = convo?.igBusinessId;
+    const actionKey = `${igBusinessId || "ig"}:${userId}`;
 
-    const res = await fetch(`${BASE_URL}/instagram/resume-conversation`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        igBusinessId,
-        userId,
-      }),
-    });
+    try {
+      setConvoActionLoading((prev) => ({ ...prev, [actionKey]: true }));
 
-    const json = await res.json().catch(() => ({}));
+      const res = await fetch(`${BASE_URL}/instagram/resume-conversation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          igBusinessId,
+          userId,
+        }),
+      });
 
-    if (!res.ok || !json.ok) {
-      alert(json?.error || "Could not resume Instagram conversation.");
-      return;
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok || !json.ok) {
+        alert(json?.error || "Could not resume Instagram conversation.");
+        return;
+      }
+
+      setCurrentConvos((prev) =>
+        prev.map((item) =>
+          (item._id && convo._id && item._id === convo._id) ||
+          (item.igBusinessId === convo.igBusinessId && (item.userId || item.psid) === (convo.userId || convo.psid))
+            ? {
+                ...item,
+                humanEscalation: false,
+                botResumeAt: null,
+                resumedBy: "dashboard",
+                resumedAt: new Date().toISOString(),
+              }
+            : item
+        )
+      );
+
+      await fetchConversationStats();
+      await fetchStats();
+    } catch (err) {
+      console.error("resumeInstagramConversation error:", err);
+      alert("Could not resume Instagram conversation.");
+    } finally {
+      setConvoActionLoading((prev) => ({ ...prev, [actionKey]: false }));
     }
+  };
 
-    setCurrentConvos((prev) =>
-      prev.map((item) =>
-        (item._id && convo._id && item._id === convo._id) ||
-        (item.igBusinessId === convo.igBusinessId && (item.userId || item.psid) === (convo.userId || convo.psid))
-          ? {
-              ...item,
-              humanEscalation: false,
-              botResumeAt: null,
-              resumedBy: "dashboard",
-              resumedAt: new Date().toISOString(),
-            }
-          : item
-      )
-    );
-
-    await fetchConversationStats();
-    await fetchStats();
-  } catch (err) {
-    console.error("resumeInstagramConversation error:", err);
-    alert("Could not resume Instagram conversation.");
-  } finally {
-    setConvoActionLoading((prev) => ({ ...prev, [actionKey]: false }));
-  }
-};
   const exportConvos = (convos, format = "json") => {
     if (!convos || !convos.length) return;
     let dataStr = "";
@@ -1076,7 +1151,7 @@ const resumeInstagramConversation = async (convo) => {
             </div>
 
             <div className="text-xs text-slate-500">
-              Tip: Quick Form for basics. Paste Text / Upload for long data. Use headings like <b>## FAQs</b> or separators like <b>---</b> between items.
+              Tip: Quick Form for basics. Paste Text / Upload for long data. Use headings like <b>## FAQs</b>, <b>## Menu</b>, <b>## Products</b> or separators like <b>---</b> between items.
             </div>
           </CardContent>
         </Card>
@@ -1564,7 +1639,8 @@ const resumeInstagramConversation = async (convo) => {
           </div>
 
           <div className="text-sm text-slate-500">
-           Open the modal to view conversation details. Messenger and Instagram conversations in human mode get a per-conversation resume button.  </div>
+            Open the modal to view conversation details. Messenger and Instagram conversations in human mode get a per-conversation resume button.
+          </div>
         </Card>
 
         <Card className="p-4 border-l-4 border-blue-500">
@@ -1613,7 +1689,7 @@ const resumeInstagramConversation = async (convo) => {
       </div>
 
       <Dialog open={buildOpen} onOpenChange={setBuildOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{botReady ? "Edit / Rebuild Bot" : "Build Your Bot"}</DialogTitle>
           </DialogHeader>
@@ -1621,6 +1697,53 @@ const resumeInstagramConversation = async (convo) => {
           <div className="space-y-4">
             <div className="text-sm text-slate-600">
               Add your business data and bot behavior. We’ll convert your data into knowledge chunks and use your settings to control how the bot replies.
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border rounded-xl p-4 bg-slate-50">
+              <div className="space-y-2">
+                <label className="text-xs text-slate-600">Business type template</label>
+                <select
+                  value={promptSettings.businessType}
+                  onChange={(e) => setPromptSettings((p) => ({ ...p, businessType: e.target.value }))}
+                  className="border rounded p-2 text-sm w-full bg-white"
+                >
+                  {BUSINESS_TYPE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs text-slate-600">Tone</label>
+                <select
+                  value={promptSettings.tone}
+                  onChange={(e) => setPromptSettings((p) => ({ ...p, tone: e.target.value }))}
+                  className="border rounded p-2 text-sm w-full bg-white"
+                >
+                  <option value="friendly">Friendly</option>
+                  <option value="professional">Professional</option>
+                  <option value="sales">Sales-focused</option>
+                  <option value="concise">Concise</option>
+                </select>
+              </div>
+
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={promptSettings.orderFlowEnabled}
+                  onChange={(e) => setPromptSettings((p) => ({ ...p, orderFlowEnabled: e.target.checked }))}
+                />
+                Enable order flow token
+              </label>
+
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={promptSettings.humanEscalationEnabled}
+                  onChange={(e) => setPromptSettings((p) => ({ ...p, humanEscalationEnabled: e.target.checked }))}
+                />
+                Enable human escalation token
+              </label>
             </div>
 
             <div className="flex gap-2 flex-wrap">
@@ -1639,13 +1762,9 @@ const resumeInstagramConversation = async (convo) => {
               <div className="space-y-2">
                 <label className="text-xs text-slate-600">Content type</label>
                 <select value={rawSection} onChange={(e) => setRawSection(e.target.value)} className="border rounded-lg px-3 py-2 text-sm w-full">
-                  <option value="mixed">Mixed / not sure</option>
-                  <option value="faqs">FAQs</option>
-                  <option value="listings">Listings / items</option>
-                  <option value="offers">Services / offers</option>
-                  <option value="paymentPlans">Payment / pricing plans</option>
-                  <option value="policies">Policies</option>
-                  <option value="hours">Hours & contact</option>
+                  {RAW_SECTION_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
                 </select>
               </div>
             ) : null}
@@ -1658,54 +1777,140 @@ const resumeInstagramConversation = async (convo) => {
                   placeholder="Business name"
                   className="border rounded p-2 text-sm w-full"
                 />
+
                 <input
                   value={botForm.businessType}
                   onChange={(e) => setBotForm((p) => ({ ...p, businessType: e.target.value }))}
-                  placeholder="What do you sell? (1 line)"
+                  placeholder="Business type text (optional, e.g. restaurant, clinic, real estate)"
                   className="border rounded p-2 text-sm w-full"
                 />
+
                 <input
                   value={botForm.cityArea}
                   onChange={(e) => setBotForm((p) => ({ ...p, cityArea: e.target.value }))}
                   placeholder="City / areas served"
                   className="border rounded p-2 text-sm w-full"
                 />
+
                 <input
                   value={botForm.phoneWhatsapp}
                   onChange={(e) => setBotForm((p) => ({ ...p, phoneWhatsapp: e.target.value }))}
                   placeholder="Phone / WhatsApp"
                   className="border rounded p-2 text-sm w-full"
                 />
+
+                <input
+                  value={botForm.email}
+                  onChange={(e) => setBotForm((p) => ({ ...p, email: e.target.value }))}
+                  placeholder="Email"
+                  className="border rounded p-2 text-sm w-full"
+                />
+
+                <input
+                  value={botForm.address}
+                  onChange={(e) => setBotForm((p) => ({ ...p, address: e.target.value }))}
+                  placeholder="Address / location"
+                  className="border rounded p-2 text-sm w-full"
+                />
+
                 <input
                   value={botForm.hours}
                   onChange={(e) => setBotForm((p) => ({ ...p, hours: e.target.value }))}
                   placeholder="Working hours"
                   className="border rounded p-2 text-sm w-full md:col-span-2"
                 />
+
+                <textarea
+                  value={botForm.about}
+                  onChange={(e) => setBotForm((p) => ({ ...p, about: e.target.value }))}
+                  placeholder="About the business"
+                  className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
+                />
+
                 <textarea
                   value={botForm.services}
                   onChange={(e) => setBotForm((p) => ({ ...p, services: e.target.value }))}
                   placeholder="Services"
                   className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
                 />
+
+                <textarea
+                  value={botForm.pricing}
+                  onChange={(e) => setBotForm((p) => ({ ...p, pricing: e.target.value }))}
+                  placeholder="Pricing / packages"
+                  className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
+                />
+
+                <textarea
+                  value={botForm.menu}
+                  onChange={(e) => setBotForm((p) => ({ ...p, menu: e.target.value }))}
+                  placeholder="Menu"
+                  className="border rounded p-2 text-sm w-full min-h-[100px] md:col-span-2"
+                />
+
+                <textarea
+                  value={botForm.products}
+                  onChange={(e) => setBotForm((p) => ({ ...p, products: e.target.value }))}
+                  placeholder="Products / catalog"
+                  className="border rounded p-2 text-sm w-full min-h-[100px] md:col-span-2"
+                />
+
                 <textarea
                   value={botForm.listingsSummary}
                   onChange={(e) => setBotForm((p) => ({ ...p, listingsSummary: e.target.value }))}
-                  placeholder="Items / listings summary"
-                  className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
+                  placeholder="Items / listings / properties summary"
+                  className="border rounded p-2 text-sm w-full min-h-[100px] md:col-span-2"
                 />
+
                 <textarea
                   value={botForm.paymentPlans}
                   onChange={(e) => setBotForm((p) => ({ ...p, paymentPlans: e.target.value }))}
-                  placeholder="Payment / pricing plans"
-                  className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
+                  placeholder="Payment / pricing / installment plans"
+                  className="border rounded p-2 text-sm w-full min-h-[100px] md:col-span-2"
                 />
+
+                <textarea
+                  value={botForm.booking}
+                  onChange={(e) => setBotForm((p) => ({ ...p, booking: e.target.value }))}
+                  placeholder="Bookings / appointments / reservations"
+                  className="border rounded p-2 text-sm w-full min-h-[90px] md:col-span-2"
+                />
+
+                <textarea
+                  value={botForm.team}
+                  onChange={(e) => setBotForm((p) => ({ ...p, team: e.target.value }))}
+                  placeholder="Team / doctors / staff"
+                  className="border rounded p-2 text-sm w-full min-h-[90px] md:col-span-2"
+                />
+
+                <textarea
+                  value={botForm.courses}
+                  onChange={(e) => setBotForm((p) => ({ ...p, courses: e.target.value }))}
+                  placeholder="Courses / programs"
+                  className="border rounded p-2 text-sm w-full min-h-[90px] md:col-span-2"
+                />
+
+                <textarea
+                  value={botForm.rooms}
+                  onChange={(e) => setBotForm((p) => ({ ...p, rooms: e.target.value }))}
+                  placeholder="Rooms / accommodation"
+                  className="border rounded p-2 text-sm w-full min-h-[90px] md:col-span-2"
+                />
+
+                <textarea
+                  value={botForm.delivery}
+                  onChange={(e) => setBotForm((p) => ({ ...p, delivery: e.target.value }))}
+                  placeholder="Delivery / shipping"
+                  className="border rounded p-2 text-sm w-full min-h-[90px] md:col-span-2"
+                />
+
                 <textarea
                   value={botForm.policies}
                   onChange={(e) => setBotForm((p) => ({ ...p, policies: e.target.value }))}
                   placeholder="Policies"
                   className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
                 />
+
                 <textarea
                   value={botForm.faqs}
                   onChange={(e) => setBotForm((p) => ({ ...p, faqs: e.target.value }))}
@@ -1718,13 +1923,13 @@ const resumeInstagramConversation = async (convo) => {
             {buildMode === "paste" ? (
               <div className="space-y-2">
                 <div className="text-xs text-slate-500">
-                  Best format: headings (<b>## FAQs</b>, <b>## Policies</b>) and use <b>---</b> between items.
+                  Best format: headings like <b>## FAQs</b>, <b>## Menu</b>, <b>## Products</b>, <b>## Booking</b>, <b>## Policies</b> and use <b>---</b> between items.
                 </div>
                 <textarea
                   value={rawText}
                   onChange={(e) => setRawText(e.target.value)}
                   placeholder="Paste your data here..."
-                  className="border rounded p-2 text-sm w-full min-h-[200px]"
+                  className="border rounded p-2 text-sm w-full min-h-[220px]"
                 />
               </div>
             ) : null}
@@ -1781,15 +1986,15 @@ const resumeInstagramConversation = async (convo) => {
             {currentConvos.length ? (
               currentConvos.map((c, idx) => {
                 const convoUserId = c.user || c.userId || c.psid || "Unknown user";
-               const convoKey =
-  c.source === "instagram"
-    ? `${c.igBusinessId || "ig"}:${c.userId || c.psid || c.user || idx}`
-    : `${c.pageId || pageId}:${c.userId || c.psid || c.user || idx}`;
+                const convoKey =
+                  c.source === "instagram"
+                    ? `${c.igBusinessId || "ig"}:${c.userId || c.psid || c.user || idx}`
+                    : `${c.pageId || pageId}:${c.userId || c.psid || c.user || idx}`;
 
-const isMessenger = c.source === "messenger";
-const isInstagram = c.source === "instagram";
-const canResume = isMessenger || isInstagram;
-const isHumanMode = Boolean(c.humanEscalation);
+                const isMessenger = c.source === "messenger";
+                const isInstagram = c.source === "instagram";
+                const canResume = isMessenger || isInstagram;
+                const isHumanMode = Boolean(c.humanEscalation);
 
                 return (
                   <div key={c._id || idx} className="border rounded-lg p-3 bg-white shadow-sm">
@@ -1800,25 +2005,26 @@ const isHumanMode = Boolean(c.humanEscalation);
                         <div className="text-xs text-slate-500 mt-1">
                           Source: {c.source || "—"} • Updated: {formatDateTime(c.updatedAt)}
                         </div>
-                     {canResume ? (
-  <div className="flex items-center gap-2">
-    {isHumanMode ? (
-      <Button
-        size="sm"
-        onClick={() =>
-          isInstagram ? resumeInstagramConversation(c) : resumeMessengerConversation(c)
-        }
-        disabled={Boolean(convoActionLoading[convoKey])}
-      >
-        {convoActionLoading[convoKey] ? "Resuming..." : "Resume Bot"}
-      </Button>
-    ) : (
-      <Button size="sm" variant="outline" disabled>
-        Bot Active
-      </Button>
-    )}
-  </div>
-) : null}
+
+                        {canResume ? (
+                          <div className="flex items-center gap-2">
+                            {isHumanMode ? (
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  isInstagram ? resumeInstagramConversation(c) : resumeMessengerConversation(c)
+                                }
+                                disabled={Boolean(convoActionLoading[convoKey])}
+                              >
+                                {convoActionLoading[convoKey] ? "Resuming..." : "Resume Bot"}
+                              </Button>
+                            ) : (
+                              <Button size="sm" variant="outline" disabled>
+                                Bot Active
+                              </Button>
+                            )}
+                          </div>
+                        ) : null}
                       </div>
 
                       {isMessenger ? (
