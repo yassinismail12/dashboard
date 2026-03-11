@@ -1553,7 +1553,7 @@ export default function ClientDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-3 text-slate-700">
                 <Users size={18} className="text-violet-500" />
-                <div className="text-sm">Tour Requests</div>
+                <div className="text-sm">Booking  Requests</div>
               </CardTitle>
             </CardHeader>
             <CardContent className="text-center">
