@@ -2027,23 +2027,7 @@ export default function ClientDashboard() {
                         ) : null}
                       </div>
 
-                      {isMessenger ? (
-                        <div className="flex items-center gap-2">
-                          {isHumanMode ? (
-                            <Button
-                              size="sm"
-                              onClick={() => resumeMessengerConversation(c)}
-                              disabled={Boolean(convoActionLoading[convoKey])}
-                            >
-                              {convoActionLoading[convoKey] ? "Resuming..." : "Resume Bot"}
-                            </Button>
-                          ) : (
-                            <Button size="sm" variant="outline" disabled>
-                              Bot Active
-                            </Button>
-                          )}
-                        </div>
-                      ) : null}
+                      
                     </div>
 
                     <div className="pl-2 space-y-2 mt-3">
