@@ -138,6 +138,7 @@ export default function ClientDashboard() {
     tone: "friendly",
     orderFlowEnabled: true,
     humanEscalationEnabled: true,
+      tourFlowEnabled: true,
     businessType: "default",
   });
 
@@ -396,6 +397,10 @@ export default function ClientDashboard() {
                     enabled: promptSettings.orderFlowEnabled,
                     token: "[ORDER_REQUEST]",
                   },
+                    tourFlow: {
+    enabled: promptSettings.tourFlowEnabled,
+    token: "[TOUR_REQUEST]",
+  },
                 },
                 data: {
                   businessName: botForm.businessName,
@@ -1744,6 +1749,14 @@ export default function ClientDashboard() {
                 />
                 Enable human escalation token
               </label>
+              <label className="flex items-center gap-2 text-sm">
+  <input
+    type="checkbox"
+    checked={promptSettings.tourFlowEnabled}
+    onChange={(e) => setPromptSettings((p) => ({ ...p, tourFlowEnabled: e.target.checked }))}
+  />
+  Enable booking flow token
+</label>
             </div>
 
             <div className="flex gap-2 flex-wrap">
