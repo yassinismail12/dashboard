@@ -77,6 +77,15 @@ export default function ClientDashboard() {
   const [pageName, setPageName] = useState("");
   const [pageId, setPageId] = useState("");
 
+  // Instagram connection state
+  const [ig, setIg] = useState({
+    connected: false,
+    igId: "",
+    igUsername: "",
+    igName: "",
+    igProfilePicUrl: "",
+  });
+
   const [testPsid, setTestPsid] = useState("33461378173508614");
 
   const [webhookStatus, setWebhookStatus] = useState({
@@ -138,7 +147,7 @@ export default function ClientDashboard() {
     tone: "friendly",
     orderFlowEnabled: true,
     humanEscalationEnabled: true,
-      tourFlowEnabled: true,
+    tourFlowEnabled: true,
     businessType: "default",
   });
 
@@ -397,10 +406,10 @@ export default function ClientDashboard() {
                     enabled: promptSettings.orderFlowEnabled,
                     token: "[ORDER_REQUEST]",
                   },
-                    tourFlow: {
-    enabled: promptSettings.tourFlowEnabled,
-    token: "[TOUR_REQUEST]",
-  },
+                  tourFlow: {
+                    enabled: promptSettings.tourFlowEnabled,
+                    token: "[TOUR_REQUEST]",
+                  },
                 },
                 data: {
                   businessName: botForm.businessName,
@@ -553,9 +562,19 @@ export default function ClientDashboard() {
       setPageName(data?.PAGE_NAME || "");
       setPageId(data?.pageId || "");
 
+      // Pull Instagram fields from the client record
+      const hasIg = Boolean(data?.igId || data?.igUsername);
+      setIg({
+        connected: hasIg,
+        igId: data?.igId || "",
+        igUsername: data?.igUsername || "",
+        igName: data?.igName || "",
+        igProfilePicUrl: data?.igProfilePicUrl || "",
+      });
+
       setBotForm((prev) => ({
         ...prev,
-        businessName: prev.businessName || data?.businessName ||"",
+        businessName: prev.businessName || data?.businessName || "",
       }));
 
       setCoverageWarnings(Array.isArray(data?.coverageWarnings) ? data.coverageWarnings : []);
@@ -1073,7 +1092,7 @@ export default function ClientDashboard() {
 
           <CardContent className="space-y-3">
             <p className="text-sm text-slate-600">
-              Add your business data once. We’ll convert it into knowledge chunks to power your chatbot. After it’s built,
+              Add your business data once. We'll convert it into knowledge chunks to power your chatbot. After it's built,
               connections are unlocked.
             </p>
 
@@ -1236,6 +1255,71 @@ export default function ClientDashboard() {
             >
               Connect Facebook Page
             </Button>
+
+            {/* ── Instagram Account (linked via Facebook Page) ── */}
+            <div className="mt-2 border rounded-xl p-4 bg-gradient-to-br from-fuchsia-50 to-pink-50">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  {/* Instagram gradient icon */}
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <linearGradient id="ig-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#f9a825" />
+                        <stop offset="40%" stopColor="#e91e63" />
+                        <stop offset="100%" stopColor="#7b1fa2" />
+                      </linearGradient>
+                    </defs>
+                    <rect x="2" y="2" width="20" height="20" rx="5" stroke="url(#ig-grad)" strokeWidth="2" fill="none" />
+                    <circle cx="12" cy="12" r="4" stroke="url(#ig-grad)" strokeWidth="2" fill="none" />
+                    <circle cx="17.5" cy="6.5" r="1" fill="url(#ig-grad)" />
+                  </svg>
+                  <span className="font-semibold text-slate-800 text-sm">Instagram Account</span>
+                </div>
+                {ig.connected ? (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-200 font-medium">
+                    ✅ Connected
+                  </span>
+                ) : (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 font-medium">
+                    Not connected
+                  </span>
+                )}
+              </div>
+
+              {ig.connected ? (
+                <div className="flex items-center gap-3">
+                  {ig.igProfilePicUrl ? (
+                    <img
+                      src={ig.igProfilePicUrl}
+                      alt={ig.igName || ig.igUsername}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-pink-200 shadow-sm flex-shrink-0"
+                      onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-fuchsia-400 to-pink-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                      <span className="text-white text-lg font-bold">
+                        {(ig.igName || ig.igUsername || "?")[0].toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    {ig.igName && (
+                      <div className="text-sm font-semibold text-slate-800 truncate">{ig.igName}</div>
+                    )}
+                    {ig.igUsername && (
+                      <div className="text-sm text-pink-600 font-medium truncate">@{ig.igUsername}</div>
+                    )}
+                    {ig.igId && (
+                      <div className="text-xs text-slate-400 mt-0.5">ID: {ig.igId}</div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">
+                  Connect your Facebook Page above — if your Page is linked to an Instagram Business account, it will appear here automatically.
+                </p>
+              )}
+            </div>
 
             <div className="mt-4 border rounded-xl p-4 bg-slate-50">
               <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -1558,7 +1642,7 @@ export default function ClientDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-3 text-slate-700">
                 <Users size={18} className="text-violet-500" />
-                <div className="text-sm">Booking  Requests</div>
+                <div className="text-sm">Booking Requests</div>
               </CardTitle>
             </CardHeader>
             <CardContent className="text-center">
@@ -1701,7 +1785,7 @@ export default function ClientDashboard() {
 
           <div className="space-y-4">
             <div className="text-sm text-slate-600">
-              Add your business data and bot behavior. We’ll convert your data into knowledge chunks and use your settings to control how the bot replies.
+              Add your business data and bot behavior. We'll convert your data into knowledge chunks and use your settings to control how the bot replies.
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border rounded-xl p-4 bg-slate-50">
@@ -1749,14 +1833,15 @@ export default function ClientDashboard() {
                 />
                 Enable human escalation token
               </label>
+
               <label className="flex items-center gap-2 text-sm">
-  <input
-    type="checkbox"
-    checked={promptSettings.tourFlowEnabled}
-    onChange={(e) => setPromptSettings((p) => ({ ...p, tourFlowEnabled: e.target.checked }))}
-  />
-  Enable booking flow token
-</label>
+                <input
+                  type="checkbox"
+                  checked={promptSettings.tourFlowEnabled}
+                  onChange={(e) => setPromptSettings((p) => ({ ...p, tourFlowEnabled: e.target.checked }))}
+                />
+                Enable booking flow token
+              </label>
             </div>
 
             <div className="flex gap-2 flex-wrap">
@@ -2039,8 +2124,6 @@ export default function ClientDashboard() {
                           </div>
                         ) : null}
                       </div>
-
-                      
                     </div>
 
                     <div className="pl-2 space-y-2 mt-3">
