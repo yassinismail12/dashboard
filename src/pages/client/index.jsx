@@ -41,6 +41,40 @@ const RAW_SECTION_OPTIONS = [
   { value: "policies", label: "Policies" },
   { value: "other", label: "Other information" },
 ];
+function FieldTip({ text }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span className="relative inline-block ml-1 align-middle">
+      <button
+        type="button"
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        onFocus={() => setShow(true)}
+        onBlur={() => setShow(false)}
+        className="w-4 h-4 rounded-full bg-slate-200 text-slate-600 text-xs font-bold leading-none flex items-center justify-center hover:bg-slate-300 transition-colors"
+        aria-label="Help"
+      >
+        ?
+      </button>
+      {show && (
+        <div className="absolute z-50 left-6 top-0 w-64 bg-slate-900 text-white text-xs rounded-lg p-3 shadow-xl leading-relaxed">
+          {text}
+          <div className="absolute left-[-6px] top-2 w-0 h-0 border-t-4 border-b-4 border-r-4 border-transparent border-r-slate-900" />
+        </div>
+      )}
+    </span>
+  );
+}
+
+function FieldLabel({ label, tip }) {
+  return (
+    <label className="flex items-center text-xs text-slate-600 mb-1">
+      {label}
+      {tip && <FieldTip text={tip} />}
+    </label>
+  );
+}
+
 
 export default function ClientDashboard() {
   const navigate = useNavigate();
@@ -1867,156 +1901,229 @@ export default function ClientDashboard() {
               </div>
             ) : null}
 
-            {buildMode === "form" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <input
-                  value={botForm.businessName}
-                  onChange={(e) => setBotForm((p) => ({ ...p, businessName: e.target.value }))}
-                  placeholder="Business name"
-                  className="border rounded p-2 text-sm w-full"
-                />
+           {buildMode === "form" ? (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                <input
-                  value={botForm.businessType}
-                  onChange={(e) => setBotForm((p) => ({ ...p, businessType: e.target.value }))}
-                  placeholder="Business type text (optional, e.g. restaurant, clinic, real estate)"
-                  className="border rounded p-2 text-sm w-full"
-                />
+    <div className="md:col-span-2">
+      <div className="text-xs bg-blue-50 border border-blue-200 rounded-lg p-3 text-blue-800 leading-relaxed">
+        💡 <b>Tips for best results:</b> Use headings like <code className="bg-blue-100 px-1 rounded">## Menu</code>, <code className="bg-blue-100 px-1 rounded">## FAQs</code> in text fields. Separate items with a new line. The more specific your data, the smarter your bot.
+      </div>
+    </div>
 
-                <input
-                  value={botForm.cityArea}
-                  onChange={(e) => setBotForm((p) => ({ ...p, cityArea: e.target.value }))}
-                  placeholder="City / areas served"
-                  className="border rounded p-2 text-sm w-full"
-                />
+    <div>
+      <FieldLabel label="Business Name" tip="The official name of the business. The bot will use this when greeting customers or referring to the business." />
+      <input
+        value={botForm.businessName}
+        onChange={(e) => setBotForm((p) => ({ ...p, businessName: e.target.value }))}
+        placeholder="e.g. Koshary El Tahrir"
+        className="border rounded p-2 text-sm w-full"
+      />
+    </div>
 
-                <input
-                  value={botForm.phoneWhatsapp}
-                  onChange={(e) => setBotForm((p) => ({ ...p, phoneWhatsapp: e.target.value }))}
-                  placeholder="Phone / WhatsApp"
-                  className="border rounded p-2 text-sm w-full"
-                />
+    <div>
+      <FieldLabel label="Business Type (text)" tip="Optional free-text description like 'Egyptian restaurant', 'dental clinic', 'real estate agency'. Helps the bot understand context." />
+      <input
+        value={botForm.businessType}
+        onChange={(e) => setBotForm((p) => ({ ...p, businessType: e.target.value }))}
+        placeholder="e.g. Egyptian restaurant, dental clinic"
+        className="border rounded p-2 text-sm w-full"
+      />
+    </div>
 
-                <input
-                  value={botForm.email}
-                  onChange={(e) => setBotForm((p) => ({ ...p, email: e.target.value }))}
-                  placeholder="Email"
-                  className="border rounded p-2 text-sm w-full"
-                />
+    <div>
+      <FieldLabel label="City / Areas Served" tip="Which cities or neighborhoods you serve. Customers often ask 'do you deliver to X?' — this helps the bot answer correctly." />
+      <input
+        value={botForm.cityArea}
+        onChange={(e) => setBotForm((p) => ({ ...p, cityArea: e.target.value }))}
+        placeholder="e.g. Cairo, Giza, Masr El Gededa"
+        className="border rounded p-2 text-sm w-full"
+      />
+    </div>
 
-                <input
-                  value={botForm.address}
-                  onChange={(e) => setBotForm((p) => ({ ...p, address: e.target.value }))}
-                  placeholder="Address / location"
-                  className="border rounded p-2 text-sm w-full"
-                />
+    <div>
+      <FieldLabel label="Phone / WhatsApp" tip="Your public contact number. Include country code if possible, e.g. +20 10 1234 5678. The bot will share this when customers ask how to call or WhatsApp you." />
+      <input
+        value={botForm.phoneWhatsapp}
+        onChange={(e) => setBotForm((p) => ({ ...p, phoneWhatsapp: e.target.value }))}
+        placeholder="e.g. +20 10 1234 5678"
+        className="border rounded p-2 text-sm w-full"
+      />
+    </div>
 
-                <input
-                  value={botForm.hours}
-                  onChange={(e) => setBotForm((p) => ({ ...p, hours: e.target.value }))}
-                  placeholder="Working hours"
-                  className="border rounded p-2 text-sm w-full md:col-span-2"
-                />
+    <div>
+      <FieldLabel label="Email" tip="Your business email if relevant. The bot will share this when customers ask for a contact email." />
+      <input
+        value={botForm.email}
+        onChange={(e) => setBotForm((p) => ({ ...p, email: e.target.value }))}
+        placeholder="e.g. hello@yourbusiness.com"
+        className="border rounded p-2 text-sm w-full"
+      />
+    </div>
 
-                <textarea
-                  value={botForm.about}
-                  onChange={(e) => setBotForm((p) => ({ ...p, about: e.target.value }))}
-                  placeholder="About the business"
-                  className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
-                />
+    <div>
+      <FieldLabel label="Address / Location" tip="Your physical address or a known landmark. The bot uses this when customers ask 'where are you?' or 'how do I find you?'" />
+      <input
+        value={botForm.address}
+        onChange={(e) => setBotForm((p) => ({ ...p, address: e.target.value }))}
+        placeholder="e.g. 15 Tahrir Square, Downtown Cairo, next to Hardee's"
+        className="border rounded p-2 text-sm w-full"
+      />
+    </div>
 
-                <textarea
-                  value={botForm.services}
-                  onChange={(e) => setBotForm((p) => ({ ...p, services: e.target.value }))}
-                  placeholder="Services"
-                  className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
-                />
+    <div className="md:col-span-2">
+      <FieldLabel label="Working Hours" tip="When you're open. Be specific — include days and times. Example: Saturday–Thursday 12pm–12am, Friday 2pm–12am. The bot answers 'are you open now?' type questions using this." />
+      <input
+        value={botForm.hours}
+        onChange={(e) => setBotForm((p) => ({ ...p, hours: e.target.value }))}
+        placeholder="e.g. Sat–Thu 12pm–12am | Fri 2pm–12am"
+        className="border rounded p-2 text-sm w-full"
+      />
+    </div>
 
-                <textarea
-                  value={botForm.pricing}
-                  onChange={(e) => setBotForm((p) => ({ ...p, pricing: e.target.value }))}
-                  placeholder="Pricing / packages"
-                  className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
-                />
+    <div className="md:col-span-2">
+      <FieldLabel label="About the Business" tip="A short description of what makes your business unique. 2–4 sentences is ideal. Avoid long essays — the bot reads this to introduce the business." />
+      <textarea
+        value={botForm.about}
+        onChange={(e) => setBotForm((p) => ({ ...p, about: e.target.value }))}
+        placeholder="e.g. We're a family-owned Egyptian restaurant serving authentic koshary and grills since 1985. Known for generous portions and fast delivery across Cairo."
+        className="border rounded p-2 text-sm w-full min-h-[80px]"
+      />
+    </div>
 
-                <textarea
-                  value={botForm.menu}
-                  onChange={(e) => setBotForm((p) => ({ ...p, menu: e.target.value }))}
-                  placeholder="Menu"
-                  className="border rounded p-2 text-sm w-full min-h-[100px] md:col-span-2"
-                />
+    <div className="md:col-span-2">
+      <FieldLabel label="Services" tip="List what you offer. One service per line works best. For restaurants this might be dine-in, takeaway, catering. For clinics, list specialties." />
+      <textarea
+        value={botForm.services}
+        onChange={(e) => setBotForm((p) => ({ ...p, services: e.target.value }))}
+        placeholder={"e.g.\nDine-in\nTakeaway\nCatering for events\nHome delivery"}
+        className="border rounded p-2 text-sm w-full min-h-[80px]"
+      />
+    </div>
 
-                <textarea
-                  value={botForm.products}
-                  onChange={(e) => setBotForm((p) => ({ ...p, products: e.target.value }))}
-                  placeholder="Products / catalog"
-                  className="border rounded p-2 text-sm w-full min-h-[100px] md:col-span-2"
-                />
+    <div className="md:col-span-2">
+      <FieldLabel label="Pricing / Packages" tip="General pricing info. If you have packages or tiers, list them here. For detailed menus use the Menu field instead. Example: 'Lunch deal 85 EGP, Family box 250 EGP'." />
+      <textarea
+        value={botForm.pricing}
+        onChange={(e) => setBotForm((p) => ({ ...p, pricing: e.target.value }))}
+        placeholder={"e.g.\nLunch deal: 85 EGP\nFamily box: 250 EGP\nMinimum delivery order: 150 EGP"}
+        className="border rounded p-2 text-sm w-full min-h-[80px]"
+      />
+    </div>
 
-                <textarea
-                  value={botForm.listingsSummary}
-                  onChange={(e) => setBotForm((p) => ({ ...p, listingsSummary: e.target.value }))}
-                  placeholder="Items / listings / properties summary"
-                  className="border rounded p-2 text-sm w-full min-h-[100px] md:col-span-2"
-                />
+    <div className="md:col-span-2">
+      <FieldLabel label="Menu" tip="Your full menu with items and prices. Best format: one item per line with its price. Use section headers for categories. Example:&#10;## Mains&#10;Koshary Small - 25 EGP&#10;Koshary Large - 40 EGP&#10;## Drinks&#10;Water - 10 EGP" />
+      <textarea
+        value={botForm.menu}
+        onChange={(e) => setBotForm((p) => ({ ...p, menu: e.target.value }))}
+        placeholder={"## Mains\nKoshary Small - 25 EGP\nKoshary Large - 40 EGP\n\n## Drinks\nWater - 10 EGP\nSoft drinks - 20 EGP"}
+        className="border rounded p-2 text-sm w-full min-h-[120px]"
+      />
+    </div>
 
-                <textarea
-                  value={botForm.paymentPlans}
-                  onChange={(e) => setBotForm((p) => ({ ...p, paymentPlans: e.target.value }))}
-                  placeholder="Payment / pricing / installment plans"
-                  className="border rounded p-2 text-sm w-full min-h-[100px] md:col-span-2"
-                />
+    <div className="md:col-span-2">
+      <FieldLabel label="Products / Catalog" tip="For shops or e-commerce: list your products with prices and brief descriptions. One product per line or use ## Category headers to group them." />
+      <textarea
+        value={botForm.products}
+        onChange={(e) => setBotForm((p) => ({ ...p, products: e.target.value }))}
+        placeholder={"## Summer Collection\nBlue linen dress - 450 EGP\nWhite cotton top - 280 EGP\n\n## Accessories\nLeather belt - 180 EGP"}
+        className="border rounded p-2 text-sm w-full min-h-[100px]"
+      />
+    </div>
 
-                <textarea
-                  value={botForm.booking}
-                  onChange={(e) => setBotForm((p) => ({ ...p, booking: e.target.value }))}
-                  placeholder="Bookings / appointments / reservations"
-                  className="border rounded p-2 text-sm w-full min-h-[90px] md:col-span-2"
-                />
+    <div className="md:col-span-2">
+      <FieldLabel label="Listings / Properties / Items" tip="For real estate or rental: list properties with key details (size, price, location, bedrooms). Use --- to separate each listing." />
+      <textarea
+        value={botForm.listingsSummary}
+        onChange={(e) => setBotForm((p) => ({ ...p, listingsSummary: e.target.value }))}
+        placeholder={"Apartment in New Cairo\n3 bedrooms | 180 sqm | 2.5M EGP\nReady to move\n---\nVilla in Sheikh Zayed\n4 bedrooms | 350 sqm | 5.8M EGP"}
+        className="border rounded p-2 text-sm w-full min-h-[100px]"
+      />
+    </div>
 
-                <textarea
-                  value={botForm.team}
-                  onChange={(e) => setBotForm((p) => ({ ...p, team: e.target.value }))}
-                  placeholder="Team / doctors / staff"
-                  className="border rounded p-2 text-sm w-full min-h-[90px] md:col-span-2"
-                />
+    <div className="md:col-span-2">
+      <FieldLabel label="Payment / Installment Plans" tip="How customers can pay. Include payment methods (cash, card, Vodafone Cash, installments). For real estate include down payment %, number of years, etc." />
+      <textarea
+        value={botForm.paymentPlans}
+        onChange={(e) => setBotForm((p) => ({ ...p, paymentPlans: e.target.value }))}
+        placeholder={"We accept cash, credit card, and Vodafone Cash.\n\nInstallment plan: 10% down payment, 5 years, 0% interest through CIB bank."}
+        className="border rounded p-2 text-sm w-full min-h-[80px]"
+      />
+    </div>
 
-                <textarea
-                  value={botForm.courses}
-                  onChange={(e) => setBotForm((p) => ({ ...p, courses: e.target.value }))}
-                  placeholder="Courses / programs"
-                  className="border rounded p-2 text-sm w-full min-h-[90px] md:col-span-2"
-                />
+    <div className="md:col-span-2">
+      <FieldLabel label="Bookings / Appointments" tip="How customers book. Include whether they book online, by phone, or by WhatsApp. Include any link if you have one. The bot will direct customers here when they ask to book." />
+      <textarea
+        value={botForm.booking}
+        onChange={(e) => setBotForm((p) => ({ ...p, booking: e.target.value }))}
+        placeholder={"To book a table call us on 01012345678 or WhatsApp us.\nFor appointments book via our website: www.example.com/book\nAvailable slots: Saturday–Thursday 10am–8pm"}
+        className="border rounded p-2 text-sm w-full min-h-[80px]"
+      />
+    </div>
 
-                <textarea
-                  value={botForm.rooms}
-                  onChange={(e) => setBotForm((p) => ({ ...p, rooms: e.target.value }))}
-                  placeholder="Rooms / accommodation"
-                  className="border rounded p-2 text-sm w-full min-h-[90px] md:col-span-2"
-                />
+    <div className="md:col-span-2">
+      <FieldLabel label="Team / Doctors / Staff" tip="List key team members, their roles, and specialties. For clinics list doctors and what they treat. The bot uses this when customers ask 'do you have a cardiologist?' or 'who is the manager?'" />
+      <textarea
+        value={botForm.team}
+        onChange={(e) => setBotForm((p) => ({ ...p, team: e.target.value }))}
+        placeholder={"Dr. Ahmed Hassan - Cardiologist, 15 years experience\nDr. Sara Mohamed - General Practitioner\nAvailable: Sat–Thu 9am–5pm"}
+        className="border rounded p-2 text-sm w-full min-h-[80px]"
+      />
+    </div>
 
-                <textarea
-                  value={botForm.delivery}
-                  onChange={(e) => setBotForm((p) => ({ ...p, delivery: e.target.value }))}
-                  placeholder="Delivery / shipping"
-                  className="border rounded p-2 text-sm w-full min-h-[90px] md:col-span-2"
-                />
+    <div className="md:col-span-2">
+      <FieldLabel label="Courses / Programs" tip="For education businesses: list courses with duration, price, and what students learn. Use ## Course Name as a header then add details below." />
+      <textarea
+        value={botForm.courses}
+        onChange={(e) => setBotForm((p) => ({ ...p, courses: e.target.value }))}
+        placeholder={"## English for Beginners\nDuration: 3 months | Price: 2,500 EGP\nSchedule: Sat & Mon 6pm–8pm\n\n## IELTS Preparation\nDuration: 6 weeks | Price: 3,800 EGP"}
+        className="border rounded p-2 text-sm w-full min-h-[80px]"
+      />
+    </div>
 
-                <textarea
-                  value={botForm.policies}
-                  onChange={(e) => setBotForm((p) => ({ ...p, policies: e.target.value }))}
-                  placeholder="Policies"
-                  className="border rounded p-2 text-sm w-full min-h-[80px] md:col-span-2"
-                />
+    <div className="md:col-span-2">
+      <FieldLabel label="Rooms / Accommodation" tip="For hotels or rental: list room types, capacity, prices per night, and amenities. Use ## Room Type as header." />
+      <textarea
+        value={botForm.rooms}
+        onChange={(e) => setBotForm((p) => ({ ...p, rooms: e.target.value }))}
+        placeholder={"## Standard Room\nCapacity: 2 guests | 800 EGP/night\nIncludes: WiFi, AC, breakfast\n\n## Suite\nCapacity: 4 guests | 1,500 EGP/night"}
+        className="border rounded p-2 text-sm w-full min-h-[80px]"
+      />
+    </div>
 
-                <textarea
-                  value={botForm.faqs}
-                  onChange={(e) => setBotForm((p) => ({ ...p, faqs: e.target.value }))}
-                  placeholder="FAQs"
-                  className="border rounded p-2 text-sm w-full min-h-[120px] md:col-span-2"
-                />
-              </div>
-            ) : null}
+    <div className="md:col-span-2">
+      <FieldLabel label="Delivery / Shipping" tip="Your delivery areas, fees, and estimated time. This is one of the most common customer questions — be specific. Example: 'Cairo and Giza: 60 EGP, 1–2 hours. Free delivery over 500 EGP.'" />
+      <textarea
+        value={botForm.delivery}
+        onChange={(e) => setBotForm((p) => ({ ...p, delivery: e.target.value }))}
+        placeholder={"We deliver to Cairo and Giza.\nDelivery fee: 60 EGP within Cairo, 80 EGP to Giza.\nEstimated time: 45–60 minutes.\nFree delivery on orders over 500 EGP."}
+        className="border rounded p-2 text-sm w-full min-h-[80px]"
+      />
+    </div>
+
+    <div className="md:col-span-2">
+      <FieldLabel label="Policies" tip="Return policy, cancellation rules, refund conditions, or any other important policies customers ask about. Be clear and specific — vague policies confuse customers." />
+      <textarea
+        value={botForm.policies}
+        onChange={(e) => setBotForm((p) => ({ ...p, policies: e.target.value }))}
+        placeholder={"Returns accepted within 7 days with original receipt.\nNo refunds on food orders once prepared.\nCancellations must be made 24 hours before appointment."}
+        className="border rounded p-2 text-sm w-full min-h-[80px]"
+      />
+    </div>
+
+    <div className="md:col-span-2">
+      <FieldLabel label="FAQs" tip="The most common questions you get from customers, with answers. Format: Q: [question] then A: [answer] on the next line. This dramatically improves bot accuracy for repeated questions." />
+      <textarea
+        value={botForm.faqs}
+        onChange={(e) => setBotForm((p) => ({ ...p, faqs: e.target.value }))}
+        placeholder={"Q: Do you have vegetarian options?\nA: Yes, we have a dedicated vegetarian menu.\n\nQ: Can I pay by card?\nA: Yes, we accept Visa, Mastercard and Vodafone Cash.\n\nQ: Do you cater for events?\nA: Yes, contact us for catering packages starting from 50 people."}
+        className="border rounded p-2 text-sm w-full min-h-[140px]"
+      />
+    </div>
+
+  </div>
+) : null}
+
+
 
             {buildMode === "paste" ? (
               <div className="space-y-2">
@@ -2212,3 +2319,17 @@ export default function ClientDashboard() {
     </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH FOR ClientDashboard.jsx
+// Add this Tooltip component near the top of the file (after imports)
+// Then replace the buildMode === "form" section with the one below
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── 1. ADD THIS COMPONENT near the top of the file (before export default) ──
+
+
+// ─── 2. REPLACE the buildMode === "form" ? ( ... ) : null section ─────────────
+// Find: {buildMode === "form" ? (
+// Replace the entire block with this:
+
