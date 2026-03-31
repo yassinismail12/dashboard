@@ -2021,12 +2021,16 @@ export default function ClientDashboard() {
     </div>
 
     <div className="md:col-span-2">
-      <FieldLabel label="Products / Catalog" tip="For shops or e-commerce: list your products with prices and brief descriptions. One product per line or use ## Category headers to group them." />
-      <textarea
+     <FieldLabel
+  label="Products / Catalog"
+  tip="For shops or e-commerce: list your products with prices and brief descriptions. Include available sizes (e.g. S, M, L, XL) and colors where relevant. One product per line or use ## Category headers to group them. Example:&#10;Blue linen dress - 450 EGP | Sizes: S, M, L&#10;White cotton top - 280 EGP | Sizes: XS, S, M, XL"
+/> <textarea
         value={botForm.products}
         onChange={(e) => setBotForm((p) => ({ ...p, products: e.target.value }))}
-        placeholder={"## Summer Collection\nBlue linen dress - 450 EGP\nWhite cotton top - 280 EGP\n\n## Accessories\nLeather belt - 180 EGP"}
-        className="border rounded p-2 text-sm w-full min-h-[100px]"
+        placeholder={
+  "## Summer Collection\nBlue linen dress - 450 EGP | Sizes: S, M, L | Colors: Blue, White\nWhite cotton top - 280 EGP | Sizes: XS, S, M, XL\n\n## Accessories\nLeather belt - 180 EGP | One size"
+}
+className="border rounded p-2 text-sm w-full min-h-[100px]"
       />
     </div>
 
@@ -2061,12 +2065,16 @@ export default function ClientDashboard() {
     </div>
 
     <div className="md:col-span-2">
-      <FieldLabel label="Team / Doctors / Staff" tip="List key team members, their roles, and specialties. For clinics list doctors and what they treat. The bot uses this when customers ask 'do you have a cardiologist?' or 'who is the manager?'" />
-      <textarea
+     
+<FieldLabel
+  label="Team / Doctors / Staff"
+  tip="List key team members with their role, specialty, brief bio, and availability. For clinics: include what conditions each doctor treats, their qualifications, and languages spoken. The bot uses this when customers ask 'do you have a cardiologist?', 'tell me about Dr. Ahmed', or 'who treats back pain?'. Example:&#10;Dr. Sara Mohamed - General Practitioner&#10;15 years experience | Speaks Arabic & English&#10;Treats: general checkups, chronic illness, pediatrics&#10;Available: Sat–Thu 9am–5pm"
+/>  <textarea
         value={botForm.team}
         onChange={(e) => setBotForm((p) => ({ ...p, team: e.target.value }))}
-        placeholder={"Dr. Ahmed Hassan - Cardiologist, 15 years experience\nDr. Sara Mohamed - General Practitioner\nAvailable: Sat–Thu 9am–5pm"}
-        className="border rounded p-2 text-sm w-full min-h-[80px]"
+       placeholder={
+  "Dr. Ahmed Hassan - Cardiologist\n15 years experience | Speaks Arabic & English\nTreats: heart disease, hypertension, ECG\nAvailable: Sat–Wed 10am–4pm\n\nDr. Sara Mohamed - General Practitioner\nTreats: checkups, chronic illness, pediatrics\nAvailable: Sat–Thu 9am–5pm"
+}  className="border rounded p-2 text-sm w-full min-h-[80px]"
       />
     </div>
 
