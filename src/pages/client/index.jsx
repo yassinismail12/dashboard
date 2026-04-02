@@ -105,7 +105,7 @@ export default function ClientDashboard() {
   const [humanRequests, setHumanRequests] = useState(0);
   const [tourRequests, setTourRequests] = useState(0);
   const [orderRequests, setOrderRequests] = useState(0);
-
+const [leadRequests, setLeadRequests] = useState(0);
   const [handoverEnabled, setHandoverEnabled] = useState(false);
 
   const [pageName, setPageName] = useState("");
@@ -177,13 +177,14 @@ export default function ClientDashboard() {
   const [coverageWarnings, setCoverageWarnings] = useState([]);
   const [sectionsPresent, setSectionsPresent] = useState([]);
 
-  const [promptSettings, setPromptSettings] = useState({
-    tone: "friendly",
-    orderFlowEnabled: true,
-    humanEscalationEnabled: true,
-    tourFlowEnabled: true,
-    businessType: "default",
-  });
+const [promptSettings, setPromptSettings] = useState({
+  tone: "friendly",
+  orderFlowEnabled: true,
+  humanEscalationEnabled: true,
+  tourFlowEnabled: true,
+  leadFlowEnabled: true,
+  businessType: "default",
+});
 
   const [botForm, setBotForm] = useState({
     businessName: "",
@@ -440,6 +441,10 @@ export default function ClientDashboard() {
                     enabled: promptSettings.orderFlowEnabled,
                     token: "[ORDER_REQUEST]",
                   },
+                  leadFlow: {
+  enabled: promptSettings.leadFlowEnabled,
+  token: "[LEAD_REQUEST]",
+},
                   tourFlow: {
                     enabled: promptSettings.tourFlowEnabled,
                     token: "[TOUR_REQUEST]",
@@ -878,6 +883,7 @@ export default function ClientDashboard() {
       setHumanRequests(data.totalHumanRequests || 0);
       setTourRequests(data.totalTourRequests || 0);
       setOrderRequests(data.totalorderRequests || 0);
+      setLeadRequests(data.totalLeadRequests || 0);
     } catch (err) {
       console.error("Error fetching stats:", err);
     }
@@ -1156,6 +1162,7 @@ export default function ClientDashboard() {
                 />
                 ON
               </label>
+            
             </div>
 
             {botReady ? (
@@ -1684,7 +1691,18 @@ export default function ClientDashboard() {
             </CardContent>
           </Card>
         </div>
-
+<Card className="hover:shadow-md transition-shadow duration-150">
+  <CardHeader>
+    <CardTitle className="flex items-center gap-3 text-slate-700">
+      <Users size={18} className="text-emerald-500" />
+      <div className="text-sm">Leads Collected</div>
+    </CardTitle>
+  </CardHeader>
+  <CardContent className="text-center">
+    <div className="text-3xl font-bold text-slate-900">{leadRequests}</div>
+    <p className="text-slate-500 text-sm mt-1">via Messenger & Instagram</p>
+  </CardContent>
+</Card>
         <Card className="p-5">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-3">
@@ -1858,7 +1876,14 @@ export default function ClientDashboard() {
                 />
                 Enable order flow token
               </label>
-
+<label className="flex items-center gap-2 text-sm">
+  <input
+    type="checkbox"
+    checked={promptSettings.leadFlowEnabled}
+    onChange={(e) => setPromptSettings((p) => ({ ...p, leadFlowEnabled: e.target.checked }))}
+  />
+  Enable lead collection flow
+</label>
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
