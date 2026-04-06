@@ -421,7 +421,7 @@ const [promptSettings, setPromptSettings] = useState({
       let ok = false;
       let lastJson = null;
 
-      if (buildMode === "form" || buildMode === "paste") {
+      if (buildMode === "form" || buildMode === "paste" || buildMode === "field")  {
         const payload =
           buildMode === "form"
             ? {
@@ -1903,18 +1903,23 @@ const [promptSettings, setPromptSettings] = useState({
               </label>
             </div>
 
-            <div className="flex gap-2 flex-wrap">
-              <Button variant={buildMode === "form" ? "default" : "outline"} onClick={() => setBuildMode("form")}>
-                Quick Form
-              </Button>
-              <Button variant={buildMode === "paste" ? "default" : "outline"} onClick={() => setBuildMode("paste")}>
-                Paste Text
-              </Button>
-              <Button variant={buildMode === "upload" ? "default" : "outline"} onClick={() => setBuildMode("upload")}>
-                Upload .txt
-              </Button>
-            </div>
-
+          <div className="flex gap-2 flex-wrap">
+  <Button variant={buildMode === "form" ? "default" : "outline"} onClick={() => setBuildMode("form")}>
+    Quick Form
+  </Button>
+  <Button variant={buildMode === "paste" ? "default" : "outline"} onClick={() => setBuildMode("paste")}>
+    Paste Text
+  </Button>
+  <Button variant={buildMode === "upload" ? "default" : "outline"} onClick={() => setBuildMode("upload")}>
+    Upload .txt
+  </Button>
+  <Button variant={buildMode === "field" ? "default" : "outline"} onClick={() => {
+    setBuildMode("field");
+    setReplaceOldKnowledge(false);
+  }}>
+    Update One Field
+  </Button>
+</div>
             {buildMode !== "form" ? (
               <div className="space-y-2">
                 <label className="text-xs text-slate-600">Content type</label>
@@ -2183,6 +2188,34 @@ className="border rounded p-2 text-sm w-full min-h-[100px]"
             {buildError ? (
               <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 whitespace-pre-wrap">{buildError}</div>
             ) : null}
+            {buildMode === "field" ? (
+  <div className="space-y-3">
+    <div className="text-xs bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800">
+      ⚡ <b>Update One Field</b> — replaces only the selected section. All other sections stay untouched. Replace Old Knowledge is automatically OFF.
+    </div>
+    <div className="space-y-2">
+      <label className="text-xs text-slate-600">Which section to update?</label>
+      <select
+        value={rawSection}
+        onChange={(e) => setRawSection(e.target.value)}
+        className="border rounded-lg px-3 py-2 text-sm w-full"
+      >
+        {RAW_SECTION_OPTIONS.filter(o => o.value !== "mixed").map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+    </div>
+    <div className="space-y-2">
+      <label className="text-xs text-slate-600">New content for this section</label>
+      <textarea
+        value={rawText}
+        onChange={(e) => setRawText(e.target.value)}
+        placeholder="Paste the updated content here..."
+        className="border rounded p-2 text-sm w-full min-h-[160px]"
+      />
+    </div>
+  </div>
+) : null}
           </div>
 
           <DialogFooter className="flex gap-2">
