@@ -475,12 +475,14 @@ const [promptSettings, setPromptSettings] = useState({
                 },
               }
             : {
-                clientId,
-                botType: effectiveBotType,
-                inputType: "text",
-                replace: Boolean(replaceOldKnowledge),
-                section: rawSection,
-                text: rawText,
+           
+    clientId,
+    botType: effectiveBotType,
+    inputType: "text",
+    replace: false,
+    section: rawSection,
+    text: rawText,
+  
               };
 
         try {
