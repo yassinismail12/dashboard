@@ -173,7 +173,7 @@ const [leadRequests, setLeadRequests] = useState(0);
   const [buildError, setBuildError] = useState("");
   const [buildSuccess, setBuildSuccess] = useState("");
 
-  const [replaceOldKnowledge, setReplaceOldKnowledge] = useState(true);
+  const [replaceOldKnowledge, setReplaceOldKnowledge] = useState(false);
   const [coverageWarnings, setCoverageWarnings] = useState([]);
   const [sectionsPresent, setSectionsPresent] = useState([]);
 
