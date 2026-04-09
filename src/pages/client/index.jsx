@@ -599,7 +599,7 @@ const [promptSettings, setPromptSettings] = useState({
     try {
       const res = await fetch(`${BASE_URL}/api/clients/${clientId}`, { credentials: "include" });
       const data = await res.json().catch(() => ({}));
-
+ console.log("🔍 promptConfig from API:", JSON.stringify(data?.promptConfig));
       setPageName(data?.PAGE_NAME || "");
       setPageId(data?.pageId || "");
 
