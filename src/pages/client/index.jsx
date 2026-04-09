@@ -482,6 +482,14 @@ const [promptSettings, setPromptSettings] = useState({
     replace: false,
     section: rawSection,
     text: rawText,
+     promptConfig: {                           // ADD THIS
+      tone: promptSettings.tone,
+      businessType: effectiveBotType,
+      humanEscalation: { enabled: promptSettings.humanEscalationEnabled, token: "[Human_request]" },
+      orderFlow: { enabled: promptSettings.orderFlowEnabled, token: "[ORDER_REQUEST]" },
+      leadFlow: { enabled: promptSettings.leadFlowEnabled, token: "[LEAD_REQUEST]" },
+      tourFlow: { enabled: promptSettings.tourFlowEnabled, token: "[TOUR_REQUEST]" },
+    },
   
               };
 
