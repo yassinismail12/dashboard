@@ -620,6 +620,17 @@ const [promptSettings, setPromptSettings] = useState({
 
       setCoverageWarnings(Array.isArray(data?.coverageWarnings) ? data.coverageWarnings : []);
       setSectionsPresent(Array.isArray(data?.sectionsPresent) ? data.sectionsPresent : []);
+    if (data?.promptConfig) {
+      setPromptSettings((prev) => ({
+        ...prev,
+        tone: data.promptConfig.tone || prev.tone,
+        businessType: data.promptConfig.businessType || data.knowledgeBotType || prev.businessType,
+        orderFlowEnabled: data.promptConfig.orderFlow?.enabled ?? prev.orderFlowEnabled,
+        humanEscalationEnabled: data.promptConfig.humanEscalation?.enabled ?? prev.humanEscalationEnabled,
+        leadFlowEnabled: data.promptConfig.leadFlow?.enabled ?? prev.leadFlowEnabled,
+        tourFlowEnabled: data.promptConfig.tourFlow?.enabled ?? prev.tourFlowEnabled,
+      }));
+    }
     } catch (err) {
       console.error("Error fetching client page connection:", err);
     }
