@@ -179,10 +179,10 @@ const [leadRequests, setLeadRequests] = useState(0);
 
 const [promptSettings, setPromptSettings] = useState({
   tone: "friendly",
-  orderFlowEnabled: true,
-  humanEscalationEnabled: true,
-  tourFlowEnabled: true,
-  leadFlowEnabled: true,
+  orderFlowEnabled: false,
+  humanEscalationEnabled: false,
+  tourFlowEnabled: false,
+  leadFlowEnabled: false,
   businessType: "default",
 });
 
