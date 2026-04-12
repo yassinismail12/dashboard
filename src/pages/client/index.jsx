@@ -1990,15 +1990,18 @@ const [promptSettings, setPromptSettings] = useState({
       />
     </div>
 
-    <div>
-      <FieldLabel label="Phone / WhatsApp" tip="Your public contact number. Include country code if possible, e.g. +20 10 1234 5678. The bot will share this when customers ask how to call or WhatsApp you." />
-      <input
-        value={botForm.phoneWhatsapp}
-        onChange={(e) => setBotForm((p) => ({ ...p, phoneWhatsapp: e.target.value }))}
-        placeholder="e.g. +20 10 1234 5678"
-        className="border rounded p-2 text-sm w-full"
-      />
-    </div>
+  <div>
+  <FieldLabel
+    label="Phone / WhatsApp"
+    tip="Your contact number(s). If you have multiple branches, list each with its branch name. Example:&#10;Masr El Gededa: +20 10 1234 5678&#10;Nasr City: +20 11 8765 4321"
+  />
+  <textarea
+    value={botForm.phoneWhatsapp}
+    onChange={(e) => setBotForm((p) => ({ ...p, phoneWhatsapp: e.target.value }))}
+    placeholder={"Masr El Gededa: +20 10 1234 5678\nNasr City: +20 11 8765 4321"}
+    className="border rounded p-2 text-sm w-full min-h-[70px]"
+  />
+</div>
 
     <div>
       <FieldLabel label="Email" tip="Your business email if relevant. The bot will share this when customers ask for a contact email." />
@@ -2010,15 +2013,18 @@ const [promptSettings, setPromptSettings] = useState({
       />
     </div>
 
-    <div>
-      <FieldLabel label="Address / Location" tip="Your physical address or a known landmark. The bot uses this when customers ask 'where are you?' or 'how do I find you?'" />
-      <input
-        value={botForm.address}
-        onChange={(e) => setBotForm((p) => ({ ...p, address: e.target.value }))}
-        placeholder="e.g. 15 Tahrir Square, Downtown Cairo, next to Hardee's"
-        className="border rounded p-2 text-sm w-full"
-      />
-    </div>
+  <div>
+  <FieldLabel
+    label="Address / Location"
+    tip="Your physical address or known landmarks. If you have multiple branches, list each one on a new line with a name. Example:&#10;Branch 1 - Masr El Gededa: 15 Merghany St, next to Hardee's&#10;Branch 2 - Nasr City: 10 Makram Ebeid St, above Vodafone"
+  />
+  <textarea
+    value={botForm.address}
+    onChange={(e) => setBotForm((p) => ({ ...p, address: e.target.value }))}
+    placeholder={"Branch 1 - Masr El Gededa: 15 Merghany St, next to Hardee's\nBranch 2 - Nasr City: 10 Makram Ebeid St, above Vodafone"}
+    className="border rounded p-2 text-sm w-full min-h-[80px]"
+  />
+</div>
 
     <div className="md:col-span-2">
       <FieldLabel label="Working Hours" tip="When you're open. Be specific — include days and times. Example: Saturday–Thursday 12pm–12am, Friday 2pm–12am. The bot answers 'are you open now?' type questions using this." />
