@@ -295,8 +295,7 @@ export default function Dashboard() {
 
       let ok = false;
       let lastJson = null;
-
-      if (buildMode === "form" || buildMode === "paste") {
+if (buildMode === "form" || buildMode === "paste" || buildMode === "field") {
         const payload =
           buildMode === "form"
             ? {

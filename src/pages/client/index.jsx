@@ -479,7 +479,7 @@ const [promptSettings, setPromptSettings] = useState({
     clientId,
     botType: effectiveBotType,
     inputType: "text",
-    replace: false,
+  replace: Boolean(replaceOldKnowledge),
     section: rawSection,
     text: rawText,
      promptConfig: {                           // ADD THIS
