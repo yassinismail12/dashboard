@@ -106,7 +106,6 @@ export default function ClientDashboard() {
   const [tourRequests, setTourRequests] = useState(0);
   const [orderRequests, setOrderRequests] = useState(0);
 const [leadRequests, setLeadRequests] = useState(0);
-  const [handoverEnabled, setHandoverEnabled] = useState(false);
 
   const [pageName, setPageName] = useState("");
   const [pageId, setPageId] = useState("");
@@ -119,8 +118,6 @@ const [leadRequests, setLeadRequests] = useState(0);
     igName: "",
     igProfilePicUrl: "",
   });
-
-  const [testPsid, setTestPsid] = useState("33461378173508614");
 
   const [webhookStatus, setWebhookStatus] = useState({
     webhookSubscribed: false,
@@ -146,23 +143,6 @@ const [leadRequests, setLeadRequests] = useState(0);
     displayPhone: "",
   });
   const [waLoading, setWaLoading] = useState(false);
-  const [waError, setWaError] = useState("");
-
-  const [waTemplates, setWaTemplates] = useState([]);
-  const [waTemplatesLoading, setWaTemplatesLoading] = useState(false);
-  const [waTemplatesError, setWaTemplatesError] = useState("");
-
-  const [waTestTo, setWaTestTo] = useState("");
-  const [waTestText, setWaTestText] = useState("✅ Test message from dashboard (WhatsApp)");
-  const [waSendingTest, setWaSendingTest] = useState(false);
-  const [waTestResult, setWaTestResult] = useState(null);
-
-  const [waTemplateName, setWaTemplateName] = useState("");
-  const [waTemplateLang, setWaTemplateLang] = useState("en_US");
-  const [waTemplateParam1, setWaTemplateParam1] = useState("Yassin");
-  const [waTemplateParam2, setWaTemplateParam2] = useState("12345");
-  const [waSendingTemplate, setWaSendingTemplate] = useState(false);
-  const [waTemplateResult, setWaTemplateResult] = useState(null);
 
   const [botReady, setBotReady] = useState(false);
   const [knowledgeVersion, setKnowledgeVersion] = useState(0);
@@ -257,7 +237,6 @@ const [promptSettings, setPromptSettings] = useState({
     if (!clientId) return;
     fetchStats();
     fetchConversationStats();
-    fetchHandoverStatus();
     fetchClientPageConnection();
     fetchWebhookStatus();
     fetchClientHealth();
@@ -711,112 +690,6 @@ const [promptSettings, setPromptSettings] = useState({
     }
   };
 
-  const sendWaTest = async () => {
-    try {
-      if (!clientId) return;
-      setWaError("");
-      setWaTestResult(null);
-      setWaSendingTest(true);
-
-      const res = await fetch(`${BASE_URL}/whatsapp/send-test`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          clientId,
-          to: waTestTo,
-          text: waTestText,
-        }),
-      });
-
-      const json = await res.json().catch(() => ({}));
-
-      if (!res.ok || !json.ok) {
-        setWaError(JSON.stringify(json.error || json));
-        return;
-      }
-
-      setWaTestResult(json);
-    } catch (e) {
-      setWaError(e.message);
-    } finally {
-      setWaSendingTest(false);
-    }
-  };
-
-  const fetchWaTemplates = async () => {
-    try {
-      if (!clientId) return;
-      setWaTemplatesError("");
-      setWaTemplatesLoading(true);
-
-      const res = await fetch(`${BASE_URL}/whatsapp/templates?clientId=${encodeURIComponent(clientId)}`, {
-        credentials: "include",
-      });
-
-      const json = await res.json().catch(() => ({}));
-
-      if (!res.ok || !json.ok) {
-        setWaTemplatesError(JSON.stringify(json.error || json));
-        setWaTemplates([]);
-        return;
-      }
-
-      const list = Array.isArray(json.templates) ? json.templates : [];
-      setWaTemplates(list);
-
-      const approved = list.find((t) => String(t.status).toUpperCase() === "APPROVED") || list[0];
-      if (approved?.name) {
-        setWaTemplateName(approved.name);
-        if (approved.language) setWaTemplateLang(approved.language);
-      }
-    } catch (e) {
-      setWaTemplatesError(e.message);
-    } finally {
-      setWaTemplatesLoading(false);
-    }
-  };
-
-  const sendWaTemplateTest = async () => {
-    try {
-      if (!clientId) return;
-      setWaError("");
-      setWaTemplateResult(null);
-      setWaSendingTemplate(true);
-
-      if (!waTemplateName.trim()) {
-        setWaError("Pick an approved template first.");
-        return;
-      }
-
-      const res = await fetch(`${BASE_URL}/whatsapp/send-template-test`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          clientId,
-          to: waTestTo,
-          templateName: waTemplateName,
-          languageCode: waTemplateLang,
-          params: [waTemplateParam1, waTemplateParam2],
-        }),
-      });
-
-      const json = await res.json().catch(() => ({}));
-
-      if (!res.ok || !json.ok) {
-        setWaError(JSON.stringify(json.error || json.details || json));
-        return;
-      }
-
-      setWaTemplateResult(json);
-    } catch (e) {
-      setWaError(e.message);
-    } finally {
-      setWaSendingTemplate(false);
-    }
-  };
-
   const connectWhatsApp = () => {
     window.location.href = `${BASE_URL}/auth/whatsapp?clientId=${clientId}`;
   };
@@ -857,29 +730,6 @@ const [promptSettings, setPromptSettings] = useState({
       setLastWebhookPayload(null);
       setPayloadViewMode("full");
       setShowWebhookModal(true);
-    }
-  };
-
-  async function sendReviewTest(pageIdValue, psid) {
-    const r = await fetch(`${BASE_URL}/api/review/send-test`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ pageId: pageIdValue, psid, text: "Your appointment has been scheduled." }),
-    });
-
-    const data = await r.json().catch(() => ({}));
-    if (data.ok) alert("Sent ✅");
-    else alert("Failed ❌ (check server logs)");
-  }
-
-  const fetchHandoverStatus = async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/api/clients/${clientId}`, { credentials: "include" });
-      const data = await res.json().catch(() => ({}));
-      setHandoverEnabled(Boolean(data.active));
-    } catch (err) {
-      console.error("Error fetching handover status:", err);
     }
   };
 
@@ -1483,8 +1333,6 @@ const [promptSettings, setPromptSettings] = useState({
               <div className="text-sm text-slate-500">Not connected yet.</div>
             )}
 
-            {waError ? <div className="text-xs text-red-600 break-words">{waError}</div> : null}
-
             <div className="flex gap-2 flex-wrap">
               <Button
                 onClick={connectWhatsApp}
@@ -1497,131 +1345,6 @@ const [promptSettings, setPromptSettings] = useState({
               <Button variant="outline" onClick={fetchWhatsAppStatus} disabled={!clientId}>
                 Refresh Status
               </Button>
-
-              <Button
-                variant="outline"
-                onClick={fetchWaTemplates}
-                disabled={!clientId || !wa.connected || waTemplatesLoading || !botReady}
-              >
-                {waTemplatesLoading ? "Syncing..." : "Sync Templates"}
-              </Button>
-            </div>
-
-            <div className="border rounded-lg bg-white p-3 space-y-2">
-              <div className="text-sm font-medium text-slate-800">Send an Approved Template (App Review Proof)</div>
-
-              <div className="text-xs text-slate-500">
-                Required: pick an <b>APPROVED</b> template, send from this UI, then show it delivered in the native WhatsApp app.
-              </div>
-
-              {waTemplatesError ? <div className="text-xs text-red-600 break-words">{waTemplatesError}</div> : null}
-
-              <label className="text-xs text-slate-600">Approved template</label>
-              <select
-                value={waTemplateName}
-                onChange={(e) => setWaTemplateName(e.target.value)}
-                className="border rounded p-2 text-sm w-full"
-                disabled={!botReady || !wa.connected}
-              >
-                <option value="">Select template...</option>
-                {(waTemplates || [])
-                  .filter((t) => String(t.status || "").toUpperCase() === "APPROVED")
-                  .map((t) => (
-                    <option key={`${t.name}:${t.language || ""}`} value={t.name}>
-                      {t.name} (APPROVED){t.language ? ` • ${t.language}` : ""}
-                    </option>
-                  ))}
-              </select>
-
-              <label className="text-xs text-slate-600">Language code</label>
-              <input
-                value={waTemplateLang}
-                onChange={(e) => setWaTemplateLang(e.target.value)}
-                placeholder="en_US"
-                className="border rounded p-2 text-sm w-full"
-                disabled={!botReady || !wa.connected}
-              />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-slate-600">Param {"{{1}}"}</label>
-                  <input
-                    value={waTemplateParam1}
-                    onChange={(e) => setWaTemplateParam1(e.target.value)}
-                    className="border rounded p-2 text-sm w-full"
-                    disabled={!botReady || !wa.connected}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-slate-600">Param {"{{2}}"}</label>
-                  <input
-                    value={waTemplateParam2}
-                    onChange={(e) => setWaTemplateParam2(e.target.value)}
-                    className="border rounded p-2 text-sm w-full"
-                    disabled={!botReady || !wa.connected}
-                  />
-                </div>
-              </div>
-
-              <label className="text-xs text-slate-600">Recipient (test number)</label>
-              <input
-                value={waTestTo}
-                onChange={(e) => setWaTestTo(e.target.value)}
-                placeholder="Recipient number (e.g. +2011xxxxxxx)"
-                className="border rounded p-2 text-sm w-full"
-                disabled={!botReady}
-              />
-
-              <div className="flex gap-2 flex-wrap items-center">
-                <Button
-                  onClick={sendWaTemplateTest}
-                  disabled={waSendingTemplate || !wa.connected || !botReady || !waTestTo.trim() || !waTemplateName.trim()}
-                >
-                  {waSendingTemplate ? "Sending..." : "Send Template Message"}
-                </Button>
-
-                {waTemplateResult?.ok ? <div className="text-xs text-green-700">Sent ✅</div> : null}
-              </div>
-
-              {waTemplateResult ? (
-                <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
-                  {JSON.stringify(waTemplateResult, null, 2)}
-                </pre>
-              ) : null}
-            </div>
-
-            <div className="border rounded-lg bg-white p-3 space-y-2">
-              <div className="text-sm font-medium text-slate-800">Send a WhatsApp Text Message (Debug Only)</div>
-
-              <div className="text-xs text-slate-500">
-                App Review usually wants <b>template</b> sending proof. Use this only for internal testing.
-              </div>
-
-              <textarea
-                value={waTestText}
-                onChange={(e) => setWaTestText(e.target.value)}
-                placeholder="Message text"
-                className="border rounded p-2 text-sm w-full min-h-[90px]"
-                disabled={!botReady}
-              />
-
-              <div className="flex gap-2 flex-wrap items-center">
-                <Button
-                  onClick={sendWaTest}
-                  disabled={waSendingTest || !waTestTo.trim() || !waTestText.trim() || !wa.connected || !botReady}
-                >
-                  {waSendingTest ? "Sending..." : "Send WhatsApp Text"}
-                </Button>
-
-                {waTestResult?.ok ? <div className="text-xs text-green-700">Sent ✅</div> : null}
-              </div>
-
-              {waTestResult ? (
-                <pre className="text-xs bg-slate-100 p-3 rounded-lg overflow-x-auto">
-                  {JSON.stringify(waTestResult, null, 2)}
-                </pre>
-              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -1760,20 +1483,6 @@ const [promptSettings, setPromptSettings] = useState({
         </Card>
 
         <Card className="p-5">
-          <div className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold text-slate-900">Send test message (Meta Send API)</h2>
-            <input
-              value={testPsid}
-              onChange={(e) => setTestPsid(e.target.value)}
-              className="border rounded p-2 text-sm w-full"
-            />
-            <Button onClick={() => sendReviewTest(pageId, testPsid)} disabled={!botReady} title={!botReady ? connectDisabledReason : ""}>
-              Send test message
-            </Button>
-          </div>
-        </Card>
-
-        <Card className="p-5">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
             <div className="flex items-center gap-3">
               <Users size={18} className="text-sky-500" />
@@ -1802,50 +1511,6 @@ const [promptSettings, setPromptSettings] = useState({
           <div className="text-sm text-slate-500">
             Open the modal to view conversation details. Messenger and Instagram conversations in human mode get a per-conversation resume button.
           </div>
-        </Card>
-
-        <Card className="p-4 border-l-4 border-blue-500">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">Agent Handover</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-gray-600">Toggle active status to allow agents to take over your conversations.</p>
-
-            <div className="flex gap-3 items-center">
-              <Button
-                variant={handoverEnabled ? "secondary" : "outline"}
-                onClick={async () => {
-                  try {
-                    if (!clientId) return;
-
-                    const res = await fetch(`${BASE_URL}/api/clients/${clientId}`, { credentials: "include" });
-                    const client = await res.json().catch(() => ({}));
-
-                    const newActive = !client.active;
-
-                    await fetch(`${BASE_URL}/api/clients/${client.clientId}`, {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      credentials: "include",
-                      body: JSON.stringify({ ...client, active: newActive }),
-                    });
-
-                    await fetchHandoverStatus();
-                    await fetchStats();
-                    await fetchClientHealth();
-                  } catch (err) {
-                    console.error("Error updating handover status:", err);
-                  }
-                }}
-              >
-                {handoverEnabled ? "Deactivate" : "Activate"}
-              </Button>
-
-              <div className="text-sm text-slate-600">
-                {handoverEnabled ? "Agents can take over conversations" : "Agents cannot take over conversations"}
-              </div>
-            </div>
-          </CardContent>
         </Card>
       </div>
 
@@ -2411,17 +2076,3 @@ className="border rounded p-2 text-sm w-full min-h-[100px]"
     </div>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PATCH FOR ClientDashboard.jsx
-// Add this Tooltip component near the top of the file (after imports)
-// Then replace the buildMode === "form" section with the one below
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ─── 1. ADD THIS COMPONENT near the top of the file (before export default) ──
-
-
-// ─── 2. REPLACE the buildMode === "form" ? ( ... ) : null section ─────────────
-// Find: {buildMode === "form" ? (
-// Replace the entire block with this:
-
