@@ -6,6 +6,7 @@ import { MessageSquare, Gauge, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import StaffManager from "@/components/StaffManager";
 
 const BASE_URL = "https://serverowned.onrender.com";
 const BOT_TYPE = "default";
@@ -1348,6 +1349,8 @@ const [promptSettings, setPromptSettings] = useState({
             </div>
           </CardContent>
         </Card>
+
+        {clientId && <StaffManager clientId={clientId} baseUrl={BASE_URL} />}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
           <Card className="hover:shadow-md transition-shadow duration-150">
