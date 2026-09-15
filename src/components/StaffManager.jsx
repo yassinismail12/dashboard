@@ -154,21 +154,26 @@ export default function StaffManager({ clientId, baseUrl }) {
             {editingId ? "Edit staff member" : "Add a staff member"}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
-              placeholder="Name (e.g. Dr. Ahmed Kadah)"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            />
-            <Input
-              type="number"
-              min="5"
-              step="5"
-              placeholder="Appointment length (minutes)"
-              value={form.appointmentDurationMinutes}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, appointmentDurationMinutes: Number(e.target.value) || 30 }))
-              }
-            />
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500">Name</label>
+              <Input
+                placeholder="e.g. Dr. Ahmed Kadah"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500">Appointment length (minutes)</label>
+              <Input
+                type="number"
+                min="5"
+                step="5"
+                value={form.appointmentDurationMinutes}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, appointmentDurationMinutes: Number(e.target.value) || 30 }))
+                }
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
