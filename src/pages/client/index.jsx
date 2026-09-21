@@ -1622,7 +1622,7 @@ const [promptSettings, setPromptSettings] = useState({
 
               <div className="pl-0 flex flex-col gap-1 max-w-xs">
                 <label className="text-xs text-gray-600 font-medium">
-                  Appointment booking notification template (Staff &amp; Hours feature — separate from the booking flow token below)
+                  Booking flow WhatsApp notification template (used once you add a staff member in Staff &amp; Hours below — real availability checking, not the legacy email toggle further down)
                 </label>
                 <label className="text-xs text-gray-600">
                   WhatsApp template name
@@ -1661,7 +1661,7 @@ const [promptSettings, setPromptSettings] = useState({
                   checked={promptSettings.tourFlowEnabled}
                   onChange={(e) => setPromptSettings((p) => ({ ...p, tourFlowEnabled: e.target.checked }))}
                 />
-                Enable booking flow token
+                Enable tour/viewing request email (legacy — sends you an email only, no real availability check. For actual appointment booking with live availability, add a staff member in Staff &amp; Hours below instead.)
               </label>
             </div>
 
