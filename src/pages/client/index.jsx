@@ -166,6 +166,7 @@ const [promptSettings, setPromptSettings] = useState({
   leadFlowEnabled: false,
   leadFlowTemplateName: "",
   leadFlowTemplateLang: "en_US",
+  bookingFlowEnabled: false,
   bookingFlowTemplateName: "",
   bookingFlowTemplateLang: "en_US",
   businessType: "default",
@@ -432,6 +433,7 @@ const [promptSettings, setPromptSettings] = useState({
   templateLang: promptSettings.leadFlowTemplateLang,
 },
                   bookingFlow: {
+                    enabled: promptSettings.bookingFlowEnabled,
                     templateName: promptSettings.bookingFlowTemplateName,
                     templateLang: promptSettings.bookingFlowTemplateLang,
                   },
@@ -484,6 +486,7 @@ const [promptSettings, setPromptSettings] = useState({
         templateLang: promptSettings.leadFlowTemplateLang,
       },
       bookingFlow: {
+        enabled: promptSettings.bookingFlowEnabled,
         templateName: promptSettings.bookingFlowTemplateName,
         templateLang: promptSettings.bookingFlowTemplateLang,
       },
@@ -636,6 +639,7 @@ const [promptSettings, setPromptSettings] = useState({
         leadFlowEnabled: data.promptConfig.leadFlow?.enabled ?? prev.leadFlowEnabled,
         leadFlowTemplateName: data.promptConfig.leadFlow?.templateName ?? prev.leadFlowTemplateName,
         leadFlowTemplateLang: data.promptConfig.leadFlow?.templateLang || prev.leadFlowTemplateLang,
+        bookingFlowEnabled: data.promptConfig.bookingFlow?.enabled ?? prev.bookingFlowEnabled,
         bookingFlowTemplateName: data.promptConfig.bookingFlow?.templateName ?? prev.bookingFlowTemplateName,
         bookingFlowTemplateLang: data.promptConfig.bookingFlow?.templateLang || prev.bookingFlowTemplateLang,
         tourFlowEnabled: data.promptConfig.tourFlow?.enabled ?? prev.tourFlowEnabled,
@@ -1620,31 +1624,38 @@ const [promptSettings, setPromptSettings] = useState({
                 </div>
               )}
 
-              <div className="pl-0 flex flex-col gap-1 max-w-xs">
-                <label className="text-xs text-gray-600 font-medium">
-                  Booking flow WhatsApp notification template (used once you add a staff member in Staff &amp; Hours below — real availability checking, not the legacy email toggle further down)
-                </label>
-                <label className="text-xs text-gray-600">
-                  WhatsApp template name
-                  <input
-                    type="text"
-                    value={promptSettings.bookingFlowTemplateName}
-                    onChange={(e) => setPromptSettings((p) => ({ ...p, bookingFlowTemplateName: e.target.value }))}
-                    placeholder="e.g. booking_alert (leave blank to reuse the order-alert template)"
-                    className="border rounded p-1 text-sm w-full bg-white mt-0.5"
-                  />
-                </label>
-                <label className="text-xs text-gray-600">
-                  Template language code
-                  <input
-                    type="text"
-                    value={promptSettings.bookingFlowTemplateLang}
-                    onChange={(e) => setPromptSettings((p) => ({ ...p, bookingFlowTemplateLang: e.target.value }))}
-                    placeholder="e.g. en, en_US, ar"
-                    className="border rounded p-1 text-sm w-full bg-white mt-0.5"
-                  />
-                </label>
-              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={promptSettings.bookingFlowEnabled}
+                  onChange={(e) => setPromptSettings((p) => ({ ...p, bookingFlowEnabled: e.target.checked }))}
+                />
+                Enable booking flow (real availability checking — requires at least one staff member in Staff &amp; Hours below)
+              </label>
+              {promptSettings.bookingFlowEnabled && (
+                <div className="pl-6 flex flex-col gap-1 max-w-xs">
+                  <label className="text-xs text-gray-600">
+                    WhatsApp template name (from Meta Business Manager)
+                    <input
+                      type="text"
+                      value={promptSettings.bookingFlowTemplateName}
+                      onChange={(e) => setPromptSettings((p) => ({ ...p, bookingFlowTemplateName: e.target.value }))}
+                      placeholder="e.g. booking_alert"
+                      className="border rounded p-1 text-sm w-full bg-white mt-0.5"
+                    />
+                  </label>
+                  <label className="text-xs text-gray-600">
+                    Template language code (must match exactly what Meta approved it under)
+                    <input
+                      type="text"
+                      value={promptSettings.bookingFlowTemplateLang}
+                      onChange={(e) => setPromptSettings((p) => ({ ...p, bookingFlowTemplateLang: e.target.value }))}
+                      placeholder="e.g. en, en_US, ar"
+                      className="border rounded p-1 text-sm w-full bg-white mt-0.5"
+                    />
+                  </label>
+                </div>
+              )}
 
               <label className="flex items-center gap-2 text-sm">
                 <input
