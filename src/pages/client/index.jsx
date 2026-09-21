@@ -164,6 +164,10 @@ const [promptSettings, setPromptSettings] = useState({
   humanEscalationEnabled: false,
   tourFlowEnabled: false,
   leadFlowEnabled: false,
+  leadFlowTemplateName: "",
+  leadFlowTemplateLang: "en_US",
+  bookingFlowTemplateName: "",
+  bookingFlowTemplateLang: "en_US",
   businessType: "default",
 });
 
@@ -424,7 +428,13 @@ const [promptSettings, setPromptSettings] = useState({
                   leadFlow: {
   enabled: promptSettings.leadFlowEnabled,
   token: "[LEAD_REQUEST]",
+  templateName: promptSettings.leadFlowTemplateName,
+  templateLang: promptSettings.leadFlowTemplateLang,
 },
+                  bookingFlow: {
+                    templateName: promptSettings.bookingFlowTemplateName,
+                    templateLang: promptSettings.bookingFlowTemplateLang,
+                  },
                   tourFlow: {
                     enabled: promptSettings.tourFlowEnabled,
                     token: "[TOUR_REQUEST]",
@@ -467,7 +477,16 @@ const [promptSettings, setPromptSettings] = useState({
       businessType: effectiveBotType,
       humanEscalation: { enabled: promptSettings.humanEscalationEnabled, token: "[Human_request]" },
       orderFlow: { enabled: promptSettings.orderFlowEnabled, token: "[ORDER_REQUEST]" },
-      leadFlow: { enabled: promptSettings.leadFlowEnabled, token: "[LEAD_REQUEST]" },
+      leadFlow: {
+        enabled: promptSettings.leadFlowEnabled,
+        token: "[LEAD_REQUEST]",
+        templateName: promptSettings.leadFlowTemplateName,
+        templateLang: promptSettings.leadFlowTemplateLang,
+      },
+      bookingFlow: {
+        templateName: promptSettings.bookingFlowTemplateName,
+        templateLang: promptSettings.bookingFlowTemplateLang,
+      },
       tourFlow: { enabled: promptSettings.tourFlowEnabled, token: "[TOUR_REQUEST]" },
     },
   
@@ -615,6 +634,10 @@ const [promptSettings, setPromptSettings] = useState({
         orderFlowEnabled: data.promptConfig.orderFlow?.enabled ?? prev.orderFlowEnabled,
         humanEscalationEnabled: data.promptConfig.humanEscalation?.enabled ?? prev.humanEscalationEnabled,
         leadFlowEnabled: data.promptConfig.leadFlow?.enabled ?? prev.leadFlowEnabled,
+        leadFlowTemplateName: data.promptConfig.leadFlow?.templateName ?? prev.leadFlowTemplateName,
+        leadFlowTemplateLang: data.promptConfig.leadFlow?.templateLang || prev.leadFlowTemplateLang,
+        bookingFlowTemplateName: data.promptConfig.bookingFlow?.templateName ?? prev.bookingFlowTemplateName,
+        bookingFlowTemplateLang: data.promptConfig.bookingFlow?.templateLang || prev.bookingFlowTemplateLang,
         tourFlowEnabled: data.promptConfig.tourFlow?.enabled ?? prev.tourFlowEnabled,
       }));
     }
@@ -1572,6 +1595,57 @@ const [promptSettings, setPromptSettings] = useState({
   />
   Enable lead collection flow
 </label>
+              {promptSettings.leadFlowEnabled && (
+                <div className="pl-6 flex flex-col gap-1 max-w-xs">
+                  <label className="text-xs text-gray-600">
+                    WhatsApp template name (from Meta Business Manager)
+                    <input
+                      type="text"
+                      value={promptSettings.leadFlowTemplateName}
+                      onChange={(e) => setPromptSettings((p) => ({ ...p, leadFlowTemplateName: e.target.value }))}
+                      placeholder="e.g. leads"
+                      className="border rounded p-1 text-sm w-full bg-white mt-0.5"
+                    />
+                  </label>
+                  <label className="text-xs text-gray-600">
+                    Template language code (must match exactly what Meta approved it under)
+                    <input
+                      type="text"
+                      value={promptSettings.leadFlowTemplateLang}
+                      onChange={(e) => setPromptSettings((p) => ({ ...p, leadFlowTemplateLang: e.target.value }))}
+                      placeholder="e.g. en, en_US, ar"
+                      className="border rounded p-1 text-sm w-full bg-white mt-0.5"
+                    />
+                  </label>
+                </div>
+              )}
+
+              <div className="pl-0 flex flex-col gap-1 max-w-xs">
+                <label className="text-xs text-gray-600 font-medium">
+                  Appointment booking notification template (Staff &amp; Hours feature — separate from the booking flow token below)
+                </label>
+                <label className="text-xs text-gray-600">
+                  WhatsApp template name
+                  <input
+                    type="text"
+                    value={promptSettings.bookingFlowTemplateName}
+                    onChange={(e) => setPromptSettings((p) => ({ ...p, bookingFlowTemplateName: e.target.value }))}
+                    placeholder="e.g. booking_alert (leave blank to reuse the order-alert template)"
+                    className="border rounded p-1 text-sm w-full bg-white mt-0.5"
+                  />
+                </label>
+                <label className="text-xs text-gray-600">
+                  Template language code
+                  <input
+                    type="text"
+                    value={promptSettings.bookingFlowTemplateLang}
+                    onChange={(e) => setPromptSettings((p) => ({ ...p, bookingFlowTemplateLang: e.target.value }))}
+                    placeholder="e.g. en, en_US, ar"
+                    className="border rounded p-1 text-sm w-full bg-white mt-0.5"
+                  />
+                </label>
+              </div>
+
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
