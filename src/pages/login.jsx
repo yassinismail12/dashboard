@@ -1,6 +1,14 @@
 // src/pages/Login.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+
+// OAuth callbacks (Facebook/Instagram/WhatsApp connect) redirect the
+// browser to "/" with query params rather than straight to "/client",
+// since root is the one path guaranteed to load on any static host without
+// depending on a working SPA rewrite rule. This forwards those cases on to
+// the actual dashboard client-side, where React Router always works
+// regardless of server/host redirect config.
+const OAUTH_CALLBACK_MARKERS = ["connected", "choose_page", "whatsapp"];
 
 export default function Login() {
     const [email, setEmail] = useState("");
@@ -8,6 +16,15 @@ export default function Login() {
     const [error, setError] = useState("");
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const isOAuthCallback = OAUTH_CALLBACK_MARKERS.some((key) => params.has(key));
+        if (isOAuthCallback) {
+            navigate(`/client${window.location.search}`, { replace: true });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
