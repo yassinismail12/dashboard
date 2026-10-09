@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import StaffManager from "@/components/StaffManager";
+import BookingsList from "@/components/BookingsList";
 
 const BASE_URL = "https://serverowned.onrender.com";
 const BOT_TYPE = "default";
@@ -1377,6 +1378,9 @@ const [promptSettings, setPromptSettings] = useState({
           </CardContent>
         </Card>
 
+        {clientId && (
+          <BookingsList clientId={clientId} baseUrl={BASE_URL} totalConversations={conversationStats.totalConversations} />
+        )}
         {clientId && <StaffManager clientId={clientId} baseUrl={BASE_URL} />}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
