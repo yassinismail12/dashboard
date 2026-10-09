@@ -1477,7 +1477,7 @@ const [promptSettings, setPromptSettings] = useState({
   </CardHeader>
   <CardContent className="text-center">
     <div className="text-3xl font-bold text-slate-900">{leadRequests}</div>
-    <p className="text-slate-500 text-sm mt-1">via Messenger & Instagram</p>
+    <p className="text-slate-500 text-sm mt-1">name &amp; phone captured, all channels</p>
   </CardContent>
 </Card>
         <Card className="p-5">
