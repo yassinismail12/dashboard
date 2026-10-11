@@ -174,14 +174,7 @@ const [promptSettings, setPromptSettings] = useState({
   humanEscalationEnabled: false,
   tourFlowEnabled: false,
   leadFlowEnabled: false,
-  leadFlowTemplateName: "",
-  leadFlowTemplateLang: "en_US",
   bookingFlowEnabled: false,
-  bookingFlowTemplateName: "",
-  bookingFlowTemplateLang: "en_US",
-  commentRepliesEnabled: false,
-  commentRepliesKeywords: "",
-  commentRepliesPublicReply: "",
   businessType: "default",
 });
 
@@ -442,18 +435,9 @@ const [promptSettings, setPromptSettings] = useState({
                   leadFlow: {
   enabled: promptSettings.leadFlowEnabled,
   token: "[LEAD_REQUEST]",
-  templateName: promptSettings.leadFlowTemplateName,
-  templateLang: promptSettings.leadFlowTemplateLang,
 },
                   bookingFlow: {
                     enabled: promptSettings.bookingFlowEnabled,
-                    templateName: promptSettings.bookingFlowTemplateName,
-                    templateLang: promptSettings.bookingFlowTemplateLang,
-                  },
-                  commentReplies: {
-                    enabled: promptSettings.commentRepliesEnabled,
-                    keywords: promptSettings.commentRepliesKeywords,
-                    publicReply: promptSettings.commentRepliesPublicReply,
                   },
                   tourFlow: {
                     enabled: promptSettings.tourFlowEnabled,
@@ -500,18 +484,9 @@ const [promptSettings, setPromptSettings] = useState({
       leadFlow: {
         enabled: promptSettings.leadFlowEnabled,
         token: "[LEAD_REQUEST]",
-        templateName: promptSettings.leadFlowTemplateName,
-        templateLang: promptSettings.leadFlowTemplateLang,
       },
       bookingFlow: {
         enabled: promptSettings.bookingFlowEnabled,
-        templateName: promptSettings.bookingFlowTemplateName,
-        templateLang: promptSettings.bookingFlowTemplateLang,
-      },
-      commentReplies: {
-        enabled: promptSettings.commentRepliesEnabled,
-        keywords: promptSettings.commentRepliesKeywords,
-        publicReply: promptSettings.commentRepliesPublicReply,
       },
       tourFlow: { enabled: promptSettings.tourFlowEnabled, token: "[TOUR_REQUEST]" },
     },
@@ -660,14 +635,7 @@ const [promptSettings, setPromptSettings] = useState({
         orderFlowEnabled: data.promptConfig.orderFlow?.enabled ?? prev.orderFlowEnabled,
         humanEscalationEnabled: data.promptConfig.humanEscalation?.enabled ?? prev.humanEscalationEnabled,
         leadFlowEnabled: data.promptConfig.leadFlow?.enabled ?? prev.leadFlowEnabled,
-        leadFlowTemplateName: data.promptConfig.leadFlow?.templateName ?? prev.leadFlowTemplateName,
-        leadFlowTemplateLang: data.promptConfig.leadFlow?.templateLang || prev.leadFlowTemplateLang,
         bookingFlowEnabled: data.promptConfig.bookingFlow?.enabled ?? prev.bookingFlowEnabled,
-        bookingFlowTemplateName: data.promptConfig.bookingFlow?.templateName ?? prev.bookingFlowTemplateName,
-        bookingFlowTemplateLang: data.promptConfig.bookingFlow?.templateLang || prev.bookingFlowTemplateLang,
-        commentRepliesEnabled: data.promptConfig.commentReplies?.enabled ?? prev.commentRepliesEnabled,
-        commentRepliesKeywords: data.promptConfig.commentReplies?.keywords ?? prev.commentRepliesKeywords,
-        commentRepliesPublicReply: data.promptConfig.commentReplies?.publicReply ?? prev.commentRepliesPublicReply,
         tourFlowEnabled: data.promptConfig.tourFlow?.enabled ?? prev.tourFlowEnabled,
       }));
     }
@@ -1653,30 +1621,6 @@ const [promptSettings, setPromptSettings] = useState({
   />
   Enable lead collection flow
 </label>
-              {promptSettings.leadFlowEnabled && (
-                <div className="pl-6 flex flex-col gap-1 max-w-xs">
-                  <label className="text-xs text-gray-600">
-                    WhatsApp template name (from Meta Business Manager)
-                    <input
-                      type="text"
-                      value={promptSettings.leadFlowTemplateName}
-                      onChange={(e) => setPromptSettings((p) => ({ ...p, leadFlowTemplateName: e.target.value }))}
-                      placeholder="e.g. leads"
-                      className="border rounded p-1 text-sm w-full bg-white mt-0.5"
-                    />
-                  </label>
-                  <label className="text-xs text-gray-600">
-                    Template language code (must match exactly what Meta approved it under)
-                    <input
-                      type="text"
-                      value={promptSettings.leadFlowTemplateLang}
-                      onChange={(e) => setPromptSettings((p) => ({ ...p, leadFlowTemplateLang: e.target.value }))}
-                      placeholder="e.g. en, en_US, ar"
-                      className="border rounded p-1 text-sm w-full bg-white mt-0.5"
-                    />
-                  </label>
-                </div>
-              )}
 
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -1684,65 +1628,9 @@ const [promptSettings, setPromptSettings] = useState({
                   checked={promptSettings.bookingFlowEnabled}
                   onChange={(e) => setPromptSettings((p) => ({ ...p, bookingFlowEnabled: e.target.checked }))}
                 />
-                Enable booking flow (real availability checking — requires at least one staff member in Staff &amp; Hours below)
+                Enable booking flow
               </label>
-              {promptSettings.bookingFlowEnabled && (
-                <div className="pl-6 flex flex-col gap-1 max-w-xs">
-                  <label className="text-xs text-gray-600">
-                    WhatsApp template name (from Meta Business Manager)
-                    <input
-                      type="text"
-                      value={promptSettings.bookingFlowTemplateName}
-                      onChange={(e) => setPromptSettings((p) => ({ ...p, bookingFlowTemplateName: e.target.value }))}
-                      placeholder="e.g. booking_alert"
-                      className="border rounded p-1 text-sm w-full bg-white mt-0.5"
-                    />
-                  </label>
-                  <label className="text-xs text-gray-600">
-                    Template language code (must match exactly what Meta approved it under)
-                    <input
-                      type="text"
-                      value={promptSettings.bookingFlowTemplateLang}
-                      onChange={(e) => setPromptSettings((p) => ({ ...p, bookingFlowTemplateLang: e.target.value }))}
-                      placeholder="e.g. en, en_US, ar"
-                      className="border rounded p-1 text-sm w-full bg-white mt-0.5"
-                    />
-                  </label>
-                </div>
-              )}
 
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={promptSettings.commentRepliesEnabled}
-                  onChange={(e) => setPromptSettings((p) => ({ ...p, commentRepliesEnabled: e.target.checked }))}
-                />
-                Reply privately to Facebook and Instagram comments that ask a question (the bot answers by DM)
-              </label>
-              {promptSettings.commentRepliesEnabled && (
-                <div className="pl-6 flex flex-col gap-1 max-w-sm">
-                  <label className="text-xs text-gray-600">
-                    Public reply under the comment (optional)
-                    <input
-                      type="text"
-                      value={promptSettings.commentRepliesPublicReply}
-                      onChange={(e) => setPromptSettings((p) => ({ ...p, commentRepliesPublicReply: e.target.value }))}
-                      placeholder="e.g. Sent you a DM 👋"
-                      className="border rounded p-1 text-sm w-full bg-white mt-0.5"
-                    />
-                  </label>
-                  <label className="text-xs text-gray-600">
-                    Only reply to comments containing these words (optional, comma-separated — leave empty to answer every question)
-                    <input
-                      type="text"
-                      value={promptSettings.commentRepliesKeywords}
-                      onChange={(e) => setPromptSettings((p) => ({ ...p, commentRepliesKeywords: e.target.value }))}
-                      placeholder="e.g. price, سعر, بكام"
-                      className="border rounded p-1 text-sm w-full bg-white mt-0.5"
-                    />
-                  </label>
-                </div>
-              )}
 
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -1759,7 +1647,7 @@ const [promptSettings, setPromptSettings] = useState({
                   checked={promptSettings.tourFlowEnabled}
                   onChange={(e) => setPromptSettings((p) => ({ ...p, tourFlowEnabled: e.target.checked }))}
                 />
-                Enable tour/viewing request email (legacy — sends you an email only, no real availability check. For actual appointment booking with live availability, add a staff member in Staff &amp; Hours below instead.)
+                Enable tour flow
               </label>
             </div>
 
