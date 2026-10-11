@@ -179,6 +179,9 @@ const [promptSettings, setPromptSettings] = useState({
   bookingFlowEnabled: false,
   bookingFlowTemplateName: "",
   bookingFlowTemplateLang: "en_US",
+  commentRepliesEnabled: false,
+  commentRepliesKeywords: "",
+  commentRepliesPublicReply: "",
   businessType: "default",
 });
 
@@ -447,6 +450,11 @@ const [promptSettings, setPromptSettings] = useState({
                     templateName: promptSettings.bookingFlowTemplateName,
                     templateLang: promptSettings.bookingFlowTemplateLang,
                   },
+                  commentReplies: {
+                    enabled: promptSettings.commentRepliesEnabled,
+                    keywords: promptSettings.commentRepliesKeywords,
+                    publicReply: promptSettings.commentRepliesPublicReply,
+                  },
                   tourFlow: {
                     enabled: promptSettings.tourFlowEnabled,
                     token: "[TOUR_REQUEST]",
@@ -499,6 +507,11 @@ const [promptSettings, setPromptSettings] = useState({
         enabled: promptSettings.bookingFlowEnabled,
         templateName: promptSettings.bookingFlowTemplateName,
         templateLang: promptSettings.bookingFlowTemplateLang,
+      },
+      commentReplies: {
+        enabled: promptSettings.commentRepliesEnabled,
+        keywords: promptSettings.commentRepliesKeywords,
+        publicReply: promptSettings.commentRepliesPublicReply,
       },
       tourFlow: { enabled: promptSettings.tourFlowEnabled, token: "[TOUR_REQUEST]" },
     },
@@ -652,6 +665,9 @@ const [promptSettings, setPromptSettings] = useState({
         bookingFlowEnabled: data.promptConfig.bookingFlow?.enabled ?? prev.bookingFlowEnabled,
         bookingFlowTemplateName: data.promptConfig.bookingFlow?.templateName ?? prev.bookingFlowTemplateName,
         bookingFlowTemplateLang: data.promptConfig.bookingFlow?.templateLang || prev.bookingFlowTemplateLang,
+        commentRepliesEnabled: data.promptConfig.commentReplies?.enabled ?? prev.commentRepliesEnabled,
+        commentRepliesKeywords: data.promptConfig.commentReplies?.keywords ?? prev.commentRepliesKeywords,
+        commentRepliesPublicReply: data.promptConfig.commentReplies?.publicReply ?? prev.commentRepliesPublicReply,
         tourFlowEnabled: data.promptConfig.tourFlow?.enabled ?? prev.tourFlowEnabled,
       }));
     }
@@ -1689,6 +1705,39 @@ const [promptSettings, setPromptSettings] = useState({
                       value={promptSettings.bookingFlowTemplateLang}
                       onChange={(e) => setPromptSettings((p) => ({ ...p, bookingFlowTemplateLang: e.target.value }))}
                       placeholder="e.g. en, en_US, ar"
+                      className="border rounded p-1 text-sm w-full bg-white mt-0.5"
+                    />
+                  </label>
+                </div>
+              )}
+
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={promptSettings.commentRepliesEnabled}
+                  onChange={(e) => setPromptSettings((p) => ({ ...p, commentRepliesEnabled: e.target.checked }))}
+                />
+                Reply privately to Facebook page comments that ask a question (the bot answers by DM)
+              </label>
+              {promptSettings.commentRepliesEnabled && (
+                <div className="pl-6 flex flex-col gap-1 max-w-sm">
+                  <label className="text-xs text-gray-600">
+                    Public reply under the comment (optional)
+                    <input
+                      type="text"
+                      value={promptSettings.commentRepliesPublicReply}
+                      onChange={(e) => setPromptSettings((p) => ({ ...p, commentRepliesPublicReply: e.target.value }))}
+                      placeholder="e.g. Sent you a DM 👋"
+                      className="border rounded p-1 text-sm w-full bg-white mt-0.5"
+                    />
+                  </label>
+                  <label className="text-xs text-gray-600">
+                    Only reply to comments containing these words (optional, comma-separated — leave empty to answer every question)
+                    <input
+                      type="text"
+                      value={promptSettings.commentRepliesKeywords}
+                      onChange={(e) => setPromptSettings((p) => ({ ...p, commentRepliesKeywords: e.target.value }))}
+                      placeholder="e.g. price, سعر, بكام"
                       className="border rounded p-1 text-sm w-full bg-white mt-0.5"
                     />
                   </label>
