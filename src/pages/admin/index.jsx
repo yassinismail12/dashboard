@@ -602,7 +602,7 @@ if (buildMode === "form" || buildMode === "paste" || buildMode === "field") {
   const remaining = quota - used;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 md:p-10">
+    <div className="min-h-screen bg-slate-50 p-3 sm:p-6 md:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
         {/* Header */}
         <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm">

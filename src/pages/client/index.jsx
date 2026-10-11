@@ -112,6 +112,9 @@ export default function ClientDashboard() {
   const [showConvoModal, setShowConvoModal] = useState(false);
   const [convoActionLoading, setConvoActionLoading] = useState({});
   const [activeTab, setActiveTab] = useState("overview");
+  useEffect(() => {
+    document.querySelector('[role="tab"][aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+  }, [activeTab]);
 
   const [humanRequests, setHumanRequests] = useState(0);
   const [tourRequests, setTourRequests] = useState(0);
@@ -999,7 +1002,7 @@ const [promptSettings, setPromptSettings] = useState({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 md:p-10">
+    <div className="min-h-screen bg-slate-50 p-3 sm:p-6 md:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm">
           <div>
@@ -1013,7 +1016,7 @@ const [promptSettings, setPromptSettings] = useState({
             </Button>
           </div>
         </header>
-        <nav role="tablist" aria-label="Dashboard sections" className="flex gap-1 overflow-x-auto bg-white p-1.5 rounded-2xl shadow-sm">
+        <nav role="tablist" aria-label="Dashboard sections" className="flex gap-1 overflow-x-auto bg-white p-1.5 rounded-2xl shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map((t) => (
             <button
               key={t.value}
@@ -1159,7 +1162,7 @@ const [promptSettings, setPromptSettings] = useState({
               </div>
             )}
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={fetchClientHealth}>
                 Refresh Warnings
               </Button>
@@ -1281,7 +1284,7 @@ const [promptSettings, setPromptSettings] = useState({
                   </p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     onClick={async () => {
@@ -1398,7 +1401,7 @@ const [promptSettings, setPromptSettings] = useState({
         </>)}
 
         {activeTab === "overview" && (<>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-5">
           <Card className="hover:shadow-md transition-shadow duration-150">
             <CardHeader>
               <CardTitle className="flex items-center gap-3 text-slate-700">
@@ -2098,7 +2101,7 @@ className="border rounded p-2 text-sm w-full min-h-[100px]"
               Showing: <b>{payloadViewMode === "messages" ? "Messages only" : "Full payload"}</b>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button size="sm" variant={payloadViewMode === "full" ? "default" : "outline"} onClick={() => setPayloadViewMode("full")}>
                 Full
               </Button>
