@@ -9,6 +9,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import StaffManager from "@/components/StaffManager";
 import BookingsList from "@/components/BookingsList";
 
+const TABS = [
+  { value: "overview", label: "Overview" },
+  { value: "conversations", label: "Conversations" },
+  { value: "bookings", label: "Bookings" },
+  { value: "channels", label: "Channels" },
+  { value: "setup", label: "Bot Setup" },
+];
+
 const BASE_URL = "https://serverowned.onrender.com";
 const BOT_TYPE = "default";
 
@@ -103,6 +111,7 @@ export default function ClientDashboard() {
   const [currentConvos, setCurrentConvos] = useState([]);
   const [showConvoModal, setShowConvoModal] = useState(false);
   const [convoActionLoading, setConvoActionLoading] = useState({});
+  const [activeTab, setActiveTab] = useState("overview");
 
   const [humanRequests, setHumanRequests] = useState(0);
   const [tourRequests, setTourRequests] = useState(0);
@@ -1020,8 +1029,24 @@ const [promptSettings, setPromptSettings] = useState({
             </Button>
           </div>
         </header>
+        <nav role="tablist" aria-label="Dashboard sections" className="flex gap-1 overflow-x-auto bg-white p-1.5 rounded-2xl shadow-sm">
+          {TABS.map((t) => (
+            <button
+              key={t.value}
+              role="tab"
+              aria-selected={activeTab === t.value}
+              onClick={() => setActiveTab(t.value)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
+                activeTab === t.value ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
 
-        <Card className="p-4 border-l-4 border-slate-900">
+        {activeTab === "setup" && (<>
+        <Card className="p-4 border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Bot Setup</CardTitle>
             <div className={`text-xs px-2 py-1 rounded border ${buildBadgeClass()}`}>
@@ -1120,7 +1145,7 @@ const [promptSettings, setPromptSettings] = useState({
           </CardContent>
         </Card>
 
-        <Card className="p-4 border-l-4 border-slate-700">
+        <Card className="p-4 border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">System Warnings</CardTitle>
             <div className={`text-xs px-2 py-1 rounded border ${statusBadge(health.status)}`}>
@@ -1157,8 +1182,10 @@ const [promptSettings, setPromptSettings] = useState({
             </div>
           </CardContent>
         </Card>
+        </>)}
 
-        <Card className="p-4 border-l-4 border-blue-600">
+        {activeTab === "channels" && (<>
+        <Card className="p-4 border-slate-200">
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Facebook Page Connection</CardTitle>
           </CardHeader>
@@ -1329,7 +1356,7 @@ const [promptSettings, setPromptSettings] = useState({
           </CardContent>
         </Card>
 
-        <Card className="p-4 border-l-4 border-emerald-600">
+        <Card className="p-4 border-slate-200">
           <CardHeader>
             <CardTitle className="text-lg font-semibold">WhatsApp Connection (Embedded Signup)</CardTitle>
           </CardHeader>
@@ -1377,12 +1404,16 @@ const [promptSettings, setPromptSettings] = useState({
             </div>
           </CardContent>
         </Card>
+        </>)}
 
+        {activeTab === "bookings" && (<>
         {clientId && (
           <BookingsList clientId={clientId} baseUrl={BASE_URL} totalConversations={conversationStats.totalConversations} />
         )}
         {clientId && <StaffManager clientId={clientId} baseUrl={BASE_URL} />}
+        </>)}
 
+        {activeTab === "overview" && (<>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
           <Card className="hover:shadow-md transition-shadow duration-150">
             <CardHeader>
@@ -1515,7 +1546,9 @@ const [promptSettings, setPromptSettings] = useState({
             </ResponsiveContainer>
           </div>
         </Card>
+        </>)}
 
+        {activeTab === "conversations" && (<>
         <Card className="p-5">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
             <div className="flex items-center gap-3">
@@ -1546,6 +1579,7 @@ const [promptSettings, setPromptSettings] = useState({
             Open the modal to view conversation details. Messenger and Instagram conversations in human mode get a per-conversation resume button.
           </div>
         </Card>
+        </>)}
       </div>
 
       <Dialog open={buildOpen} onOpenChange={setBuildOpen}>
