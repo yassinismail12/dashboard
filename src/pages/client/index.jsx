@@ -1717,7 +1717,7 @@ const [promptSettings, setPromptSettings] = useState({
                   checked={promptSettings.commentRepliesEnabled}
                   onChange={(e) => setPromptSettings((p) => ({ ...p, commentRepliesEnabled: e.target.checked }))}
                 />
-                Reply privately to Facebook page comments that ask a question (the bot answers by DM)
+                Reply privately to Facebook and Instagram comments that ask a question (the bot answers by DM)
               </label>
               {promptSettings.commentRepliesEnabled && (
                 <div className="pl-6 flex flex-col gap-1 max-w-sm">
