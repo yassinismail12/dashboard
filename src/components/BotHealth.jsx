@@ -12,6 +12,7 @@ export default function BotHealth({ baseUrl }) {
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
+  const [enabled, setEnabled] = useState(false);
 
   const load = async () => {
     try {
@@ -20,6 +21,7 @@ export default function BotHealth({ baseUrl }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) throw new Error(data.error || "Failed to load bot health");
       setClients(data.clients || []);
+      setEnabled(Boolean(data.enabled));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -57,7 +59,15 @@ export default function BotHealth({ baseUrl }) {
           </Button>
         </div>
         <p className="text-sm text-slate-500 mt-1">
-          {loading ? "Loading…" : clients.length === 0 ? "No checks yet — the first one runs within a few minutes of a server start." : problems === 0 ? "All bots look healthy." : `${problems} of ${clients.length} need a look.`}
+          {loading
+            ? "Loading…"
+            : !enabled && clients.length === 0
+            ? "Monitoring is off. Press Check now to run it once, or set MONITOR_ENABLED=true on the server to run it hourly with email alerts."
+            : clients.length === 0
+            ? "No checks yet — the first one runs a couple of minutes after a server start."
+            : problems === 0
+            ? `All bots look healthy.${enabled ? "" : " (hourly monitoring is off)"}`
+            : `${problems} of ${clients.length} need a look.${enabled ? "" : " (hourly monitoring is off)"}`}
         </p>
       </CardHeader>
       <CardContent className="p-0">
